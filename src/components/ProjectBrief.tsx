@@ -363,9 +363,9 @@ export function ProjectBrief({
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Lifestyle Goals</p>
                     <TagList items={data.lifestyleGoals} placeholder="No goals selected" />
-                    {refinedData && refinedData.lifestyleScopeItems.length > 0 && (
+                    {refinedData && (refinedData.lifestyleScopeItems?.length ?? 0) > 0 && (
                       <ul className="mt-2.5 space-y-1.5">
-                        {refinedData.lifestyleScopeItems.map((item, i) => (
+                        {(refinedData.lifestyleScopeItems ?? []).map((item, i) => (
                           <li key={i} className="flex items-start gap-2">
                             <span className="w-1 h-1 rounded-full bg-indigo-400 mt-2 shrink-0" />
                             <span className="text-xs text-slate-600 leading-relaxed">{item}</span>

@@ -114,6 +114,23 @@ function hasAnyData(d: ProjectData): boolean {
   );
 }
 
+// ─── Response validator ───────────────────────────────────────────────────────
+
+function isValidRefinedData(obj: unknown): obj is RefinedBriefData {
+  if (!obj || typeof obj !== 'object') return false;
+  const r = obj as Record<string, unknown>;
+  return (
+    typeof r.projectNarrative === 'string' &&
+    typeof r.motivationStatement === 'string' &&
+    typeof r.designPhilosophy === 'string' &&
+    Array.isArray(r.lifestyleScopeItems) &&
+    typeof r.kitchenScope === 'string' &&
+    typeof r.masterBedroomScope === 'string' &&
+    typeof r.livingZoneScope === 'string' &&
+    typeof r.additionalScope === 'string'
+  );
+}
+
 // ─── App ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -199,45 +216,77 @@ export default function App() {
     setIsRefining(true);
     setShowMobilePreview(true);
 
-    // 2-second AI processing window
-    await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+    try {
+      let refined: RefinedBriefData;
+      let usedFallback = false;
 
-    const refined = refineProjectBrief(data);
-    setRefinedData(refined);
-    setIsRefining(false);
-    setBriefGenerated(true);
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20_000);
+        let response: Response;
+        try {
+          response = await fetch('/api/refine', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+        if (!response!.ok) throw new Error(`API ${response!.status}`);
+        const raw: unknown = await response!.json();
+        if (!isValidRefinedData(raw)) throw new Error('Unexpected response shape from AI');
+        refined = raw;
+      } catch {
+        refined = refineProjectBrief(data);
+        usedFallback = true;
+      }
 
-    // Save to history
-    const session: Session = {
-      id: currentSessionId,
-      createdAt: sessionCreatedAt,
-      updatedAt: new Date().toISOString(),
-      data,
-      refNumber,
-      generatedDate,
-      signatureDataUrl,
-      status: 'generated',
-    };
-    persistSession(session);
+      setRefinedData(refined);
+      setBriefGenerated(true);
 
-    toast.success('Project Brief Generated!', {
-      description: `${data.clientName ? `${data.clientName}'s brief` : 'Brief'} is ready — add signature and download PDF.`,
-      duration: 5000,
-    });
+      if (usedFallback) {
+        toast.info('Brief generated using local engine', {
+          description: 'AI was unavailable — your brief was built from our offline pattern library.',
+          duration: 6000,
+        });
+      }
 
-    const fire = (ratio: number, opts: confetti.Options) =>
-      confetti({
-        origin: { y: 0.65 },
-        colors: ['#4f46e5', '#7c3aed', '#a78bfa', '#c4b5fd', '#e0e7ff'],
-        ...opts,
-        particleCount: Math.floor(220 * ratio),
+      // Save to history
+      const session: Session = {
+        id: currentSessionId,
+        createdAt: sessionCreatedAt,
+        updatedAt: new Date().toISOString(),
+        data,
+        refNumber,
+        generatedDate,
+        signatureDataUrl,
+        status: 'generated',
+      };
+      persistSession(session);
+
+      toast.success('Project Brief Generated!', {
+        description: `${data.clientName ? `${data.clientName}'s brief` : 'Brief'} is ready — add signature and download PDF.`,
+        duration: 5000,
       });
 
-    fire(0.25, { spread: 26, startVelocity: 55 });
-    fire(0.2,  { spread: 60 });
-    fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
-    fire(0.1,  { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
-    fire(0.1,  { spread: 120, startVelocity: 45 });
+      const fire = (ratio: number, opts: confetti.Options) =>
+        confetti({
+          origin: { y: 0.65 },
+          colors: ['#4f46e5', '#7c3aed', '#a78bfa', '#c4b5fd', '#e0e7ff'],
+          ...opts,
+          particleCount: Math.floor(220 * ratio),
+        });
+
+      fire(0.25, { spread: 26, startVelocity: 55 });
+      fire(0.2,  { spread: 60 });
+      fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+      fire(0.1,  { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
+      fire(0.1,  { spread: 120, startVelocity: 45 });
+    } finally {
+      setIsRefining(false);
+    }
   };
 
   // ── PDF download ─────────────────────────────────────────────────────────────
@@ -650,7 +699,8 @@ export default function App() {
                 <motion.button
                   type="button"
                   onClick={handleGenerate}
-                  animate={{
+                  disabled={isRefining}
+                  animate={isRefining ? {} : {
                     boxShadow: [
                       '0 8px 20px rgba(79,70,229,0.25)',
                       '0 8px 32px rgba(109,40,217,0.50)',
@@ -658,14 +708,16 @@ export default function App() {
                     ],
                   }}
                   transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
-                  whileTap={{ scale: 0.96 }}
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm
-                             bg-gradient-to-r from-indigo-600 to-violet-600 text-white
-                             hover:from-indigo-500 hover:to-violet-500
-                             transition-colors touch-manipulation min-h-[48px]"
+                  whileTap={isRefining ? {} : { scale: 0.96 }}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm
+                             transition-colors touch-manipulation min-h-[48px]
+                             ${isRefining
+                               ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                               : 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-500 hover:to-violet-500'
+                             }`}
                 >
-                  <Sparkles size={17} />
-                  Generate Project Brief
+                  <Sparkles size={17} className={isRefining ? 'animate-spin' : ''} />
+                  {isRefining ? 'Analysing…' : 'Generate Project Brief'}
                 </motion.button>
               )}
             </div>
