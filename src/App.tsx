@@ -285,7 +285,7 @@ export default function App() {
 
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20_000);
+        const timeoutId = setTimeout(() => controller.abort(), 50_000);
         let response: Response;
         try {
           response = await fetch('/api/refine', {
