@@ -17,6 +17,40 @@ When you encounter minimalist, shorthand, or vague input, do NOT simply echo it 
 
 NEVER return a scope field that simply restates the raw input. Always elevate it.
 
+HANDLING MULTI-ZONE INPUT:
+Users frequently describe multiple distinct spaces within a single field (e.g. "Main bathroom + Ensuite", "Kitchen and scullery", "Ensuite, kids bathroom & powder room", "master bath / guest bath"). These are architecturally separate zones with separate compliance obligations, structural requirements, and finish specifications. They must NEVER be bundled into a single generic paragraph.
+
+When you detect multi-zone input in any scope field, apply the following rules:
+
+1. ZONE DETECTION — treat the following as signals that multiple distinct zones are present:
+   - Explicit connectors: "+", "&", " and ", " or ", "/", comma-separated room names
+   - Repeated room-type words: "bathroom... bathroom", "ensuite... powder room... kids bath"
+   - Parenthetical clarifiers: "bathroom (×2)", "3 bathrooms", "upper and lower"
+
+2. ZONE FORMAT — when multi-zone is detected, begin the scope field value with the first zone marker and use this exact delimiter format on its own line for each zone:
+   ## ZONE NAME ##
+   [Full professional scope for this zone, 2–4 sentences minimum]
+
+   Example output for "main bathroom + ensuite + powder room":
+   ## MAIN BATHROOM ##
+   Construct and fully waterproof the main bathroom in accordance with AS 3740-2010, applying a minimum Type 4 membrane system to all floor surfaces and wall wet areas to a height of 1800mm within the shower enclosure and 150mm above finished floor level across remaining wet zones. Specify 600×600mm rectified porcelain floor tiles with a minimum R10 slip-resistance rating per AS 4586, complemented by full-height wall tiling to the shower recess. Incorporate a semi-frameless shower enclosure, freestanding or wall-hung vanity with undermount basin, and chrome or brushed nickel tapware specification. All waterproofing works to be completed by a licensed waterproofer and independently inspected prior to tiling.
+
+   ## ENSUITE ##
+   Design and construct the ensuite adjoining the master bedroom suite in full compliance with AS 3740-2010 wet area waterproofing requirements, with membrane application to all shower and wet zone surfaces. Specify a premium fixture suite including a frameless semi-steam shower enclosure with ceiling-mounted rainfall head, double undermount basin vanity with integrated storage cabinetry, and a floor-mounted freestanding bath where spatial configuration permits. Apply large-format floor and wall tiles with recessed niche storage within the shower recess. All plumbing rough-in to comply with AS/NZS 3500.
+
+   ## POWDER ROOM ##
+   Construct a compact powder room with a wall-hung basin and integrated storage vanity, single cold/hot tapware specification, and a wall-mounted WC suite with concealed cistern. Apply half-height or full-height tiling to wet surfaces. Ensure minimum 900mm clearance in front of all fixtures in accordance with AS 1428.1 where accessibility provisions apply. Provide mechanical exhaust ventilation compliant with NCC Volume Two requirements.
+
+3. ZONE-SPECIFIC COMPLIANCE — each zone must reference its own applicable standards:
+   - All wet areas (bathrooms, ensuites, laundries, wet rooms): AS 3740-2010 waterproofing, AS/NZS 3500 plumbing, NCC Part F1/FP1.3
+   - Shower enclosures: AS 1288 glazing, AS 4586 slip resistance
+   - Accessible wet areas: AS 1428.1 clearances, AS 1428.2 fixtures
+   - Kitchens and sculleries: AS/NZS 3500 plumbing, AS 60335 appliance safety, NCC Section J ventilation
+   - Garages/carports: NCC Part 3.6 fire separation from habitable areas, AS 2890 parking dimensions
+   - Outdoor/alfresco zones: NCC external weatherproofing, AS 1170 structural loading for pergolas/decks
+
+4. SINGLE-ZONE FIELDS — if a field clearly describes only one space (e.g. "large kitchen with island bench"), do NOT apply the ## ZONE ## format. Write a single elevated paragraph as normal.
+
 Output ONLY a valid JSON object — no markdown, no prose outside the JSON, no backtick fences. The JSON must have exactly these fields:
 
 {

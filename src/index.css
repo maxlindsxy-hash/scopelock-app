@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    height: 100%;
+  }
+
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+    text-align: left;
+    border: none;
+    display: block;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: #f8fafc;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    /* prevent iOS text size adjustment on orientation change */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Consistent, branded focus ring */
+  :focus-visible {
+    outline: 2px solid #4f46e5;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Disable built-in focus ring where we have custom styles */
+  button:focus:not(:focus-visible),
+  input:focus:not(:focus-visible),
+  textarea:focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+@media print {
+  /* ── Page setup ─────────────────────────────────────────────────────────── */
+  @page {
+    size: A4 portrait;
+    margin: 18mm 16mm 20mm 16mm;
+  }
+
+  /* ── Reset scroll/height constraints ────────────────────────────────────── */
+  html, body, #root {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  /* Preserve background fills and border colours exactly */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ── Hide non-document chrome ────────────────────────────────────────────── */
+  .no-print {
+    display: none !important;
+  }
+
+  body > #root > div > div.lg\:flex > div:first-child {
+    display: none !important;
+  }
+
+  body > #root > div > div.lg\:flex > div:last-child {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    border: none !important;
+  }
+
+  /* ── Brief document container ───────────────────────────────────────────── */
+  #brief-document {
+    overflow: visible !important;
+    padding: 0 !important;
+    height: auto !important;
+  }
+
+  /* Fill print width — remove screen max-width cap */
+  #brief-document > div {
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* ── Typography ─────────────────────────────────────────────────────────── */
+  #brief-document {
+    font-size: 10.5pt !important;
+    line-height: 1.55 !important;
+    color: #0f172a !important;
+  }
+
+  #brief-document h1, #brief-document h2 {
+    font-size: 12pt !important;
+  }
+
+  #brief-document h3 {
+    font-size: 10.5pt !important;
+  }
+
+  /* ── Section spacing (tighter on paper than screen) ─────────────────────── */
+  #brief-document .space-y-6 > * + * {
+    margin-top: 14pt !important;
+  }
+
+  /* ── Page-break rules ───────────────────────────────────────────────────── */
+
+  /* Each major section block stays together */
+  .brief-section {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Keep a section's divider header attached to its content */
+  .brief-section > div:first-child {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* Each room/field block stays together */
+  .brief-room {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Multi-zone sub-sections stay together */
+  .brief-zone {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Contractor header block */
+  .brief-contractor {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Letterhead / title block */
+  .brief-letterhead {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* AI narrative card */
+  .brief-narrative {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Tag chip rows */
+  .brief-tags {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Lifestyle scope bullet list and its items */
+  .brief-scope-list {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .brief-scope-list li {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Signature block — keep on same page, or open a fresh one */
+  .brief-signature {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Footer line */
+  .brief-footer {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* ── Visual cleanup for paper ────────────────────────────────────────────── */
+
+  /* Rounded corners look fine at 4px on paper; remove large radii */
+  #brief-document .rounded-xl,
+  #brief-document .rounded-2xl {
+    border-radius: 6px !important;
+  }
+
+  /* Drop box-shadows — they bleed on laser printers */
+  #brief-document [class*="shadow"] {
+    box-shadow: none !important;
+  }
+
+  /* Tone down the indigo gradient button/badge fills to solid for print */
+  #brief-document [class*="bg-gradient"] {
+    background-image: none !important;
+    background-color: #4f46e5 !important;
+  }
+
+  /* Ensure links don't print with underlines */
+  #brief-document a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+}

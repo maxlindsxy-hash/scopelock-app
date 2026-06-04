@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Printer, Lock, Calendar, Hash, User, MapPin, Download, Loader2, Building2, Sparkles, CheckCircle2, Copy, Check, FileDown } from 'lucide-react';
+import { Printer, Lock, Calendar, Hash, User, MapPin, Download, Loader2, Building2, Sparkles, Copy, Check, FileDown } from 'lucide-react';
 import type { ProjectData, ContractorProfile } from '../types';
 import type { RefinedBriefData } from '../utils/aiRefiner';
 import { SignatureField } from './SignatureField';
@@ -20,6 +20,11 @@ interface Props {
 }
 
 // ─── Markdown builder ─────────────────────────────────────────────────────────
+
+function scopeToMarkdown(text: string): string {
+  // Convert ## ZONE NAME ## delimiters to #### sub-headings for .md export
+  return text.replace(/##\s*([^#\n]+?)\s*##\n?/g, '\n#### $1\n');
+}
 
 function buildMarkdown(
   data: ProjectData,
@@ -89,19 +94,19 @@ function buildMarkdown(
   lines.push('## Room Specifications');
   lines.push('');
   lines.push('### Kitchen');
-  lines.push(refinedData?.kitchenScope || data.kitchenNotes || '_No notes entered._');
+  lines.push(scopeToMarkdown(refinedData?.kitchenScope || data.kitchenNotes || '_No notes entered._'));
   lines.push('');
   lines.push('### Master Bedroom Suite');
-  lines.push(refinedData?.masterBedroomScope || data.masterBedroomNotes || '_No notes entered._');
+  lines.push(scopeToMarkdown(refinedData?.masterBedroomScope || data.masterBedroomNotes || '_No notes entered._'));
   lines.push('');
   lines.push('### Living Zones');
-  lines.push(refinedData?.livingZoneScope || data.livingZoneNotes || '_No notes entered._');
+  lines.push(scopeToMarkdown(refinedData?.livingZoneScope || data.livingZoneNotes || '_No notes entered._'));
   lines.push('');
 
   const additionalText = refinedData?.additionalScope || data.additionalNotes;
   if (additionalText) {
     lines.push('## Additional Requirements');
-    lines.push(additionalText);
+    lines.push(scopeToMarkdown(additionalText));
     lines.push('');
   }
 
@@ -116,7 +121,7 @@ function buildMarkdown(
 
 function DocSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 brief-section">
       <div className="flex items-center gap-2">
         <div className="h-px flex-1 bg-slate-100" />
         <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 px-1">
@@ -132,7 +137,7 @@ function DocSection({ title, children }: { title: string; children: React.ReactN
 function TagList({ items, placeholder }: { items: string[]; placeholder: string }) {
   if (items.length === 0) return <p className="text-sm text-slate-300 italic">{placeholder}</p>;
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-1.5 brief-tags">
       {items.map((item) => (
         <span key={item} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-medium">
           {item}
@@ -142,12 +147,25 @@ function TagList({ items, placeholder }: { items: string[]; placeholder: string 
   );
 }
 
+function parseZones(text: string): Array<{ name: string; body: string }> | null {
+  if (!text.includes('##')) return null;
+  const nameMatches = [...text.matchAll(/##\s*([^#\n]+?)\s*##/g)];
+  if (nameMatches.length === 0) return null;
+  const segments = text.split(/##\s*[^#\n]+?\s*##\n?/);
+  return nameMatches.map((match, i) => ({
+    name: match[1].trim(),
+    body: (segments[i + 1] ?? '').trim(),
+  }));
+}
+
 function RoomBlock({ label, value, refined }: { label: string; value: string; refined?: string }) {
   const display = refined || value;
   const isRefined = !!(refined && refined !== value);
+  const zones = display ? parseZones(display) : null;
+
   return (
     <div>
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-2 mb-1.5">
         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
         {isRefined && (
           <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-[9px] font-bold uppercase tracking-wide text-indigo-500">
@@ -156,72 +174,161 @@ function RoomBlock({ label, value, refined }: { label: string; value: string; re
           </span>
         )}
       </div>
-      <p className={`text-sm leading-relaxed ${display ? 'text-slate-700' : 'text-slate-300 italic'}`}>
-        {display || 'No notes entered'}
-      </p>
+
+      {zones ? (
+        <div className="space-y-4 brief-room">
+          {zones.map((zone, i) => (
+            <div key={i} className="pl-3 border-l-2 border-indigo-100 brief-zone">
+              <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-indigo-400 mb-1">
+                {zone.name}
+              </p>
+              <p className="text-sm leading-relaxed text-slate-700">
+                {zone.body || '—'}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className={`text-sm leading-relaxed ${display ? 'text-slate-700' : 'text-slate-300 italic'}`}>
+          {display || 'No notes entered'}
+        </p>
+      )}
     </div>
   );
 }
 
-function AiLoadingState() {
+// ─── Skeleton helpers ─────────────────────────────────────────────────────────
+
+function Sk({ w = 'w-full', h = 'h-3' }: { w?: string; h?: string }) {
+  return <div className={`${h} ${w} rounded-full bg-slate-200`} />;
+}
+
+function SkSection({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="h-px flex-1 bg-slate-200" />
+        <div className="h-2 w-24 rounded-full bg-slate-200" />
+        <div className="h-px flex-1 bg-slate-200" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function BriefSkeleton() {
   return (
     <motion.div
-      key="loading"
+      key="skeleton"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.25 }}
-      className="flex-1 flex flex-col items-center justify-center gap-5 px-8 py-12"
+      transition={{ duration: 0.2 }}
+      className="animate-pulse max-w-prose mx-auto space-y-6 py-2"
     >
-      <div className="relative">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1.6, repeat: Infinity, ease: 'linear' }}
-          className="w-14 h-14 rounded-full border-[3px] border-indigo-100 border-t-indigo-500"
-        />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Sparkles size={18} className="text-indigo-400" />
+      {/* Contractor block */}
+      <div className="rounded-xl bg-slate-100 border border-slate-200 p-4 flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-slate-200 shrink-0" />
+        <div className="space-y-2 flex-1 min-w-0">
+          <Sk w="w-40" h="h-3" />
+          <Sk w="w-28" h="h-2.5" />
+          <Sk w="w-56" h="h-2" />
         </div>
       </div>
 
-      <div className="text-center space-y-1.5 max-w-[220px]">
-        <p className="font-bold text-slate-800 text-sm">Analyzing with AI...</p>
-        <p className="text-xs text-slate-400 leading-relaxed">
-          Elevating your brief to professional architectural standards
-        </p>
+      {/* Letterhead */}
+      <div className="text-center space-y-2 pb-5 border-b-2 border-slate-100">
+        <div className="flex items-center justify-center gap-2 mb-1">
+          <div className="w-7 h-7 rounded-lg bg-slate-200" />
+          <Sk w="w-28" h="h-4" />
+        </div>
+        <Sk w="w-52 mx-auto" h="h-3" />
+        <Sk w="w-44 mx-auto" h="h-2.5" />
       </div>
 
-      <div className="flex items-center gap-2">
-        {[0, 1, 2].map((i) => (
-          <motion.div
-            key={i}
-            className="w-1.5 h-1.5 rounded-full bg-indigo-300"
-            animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
-            transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2, ease: 'easeInOut' }}
-          />
-        ))}
-      </div>
+      {/* Project Narrative */}
+      <SkSection>
+        <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4 space-y-2">
+          <Sk />
+          <Sk w="w-11/12" />
+          <Sk w="w-3/4" />
+        </div>
+      </SkSection>
 
-      <div className="w-full max-w-[200px] space-y-2.5 mt-2">
-        {['Parsing design selections', 'Expanding scope notes', 'Structuring brief copy'].map((step, i) => (
-          <motion.div
-            key={step}
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 + i * 0.35, duration: 0.3 }}
-            className="flex items-center gap-2"
-          >
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.5 + i * 0.35, type: 'spring', stiffness: 400 }}
-            >
-              <CheckCircle2 size={13} className="text-indigo-400 shrink-0" />
-            </motion.div>
-            <span className="text-xs text-slate-400">{step}</span>
-          </motion.div>
-        ))}
-      </div>
+      {/* Client & Project Details */}
+      <SkSection>
+        <div className="space-y-3">
+          {[{ icon: true, label: 'w-10', value: 'w-40' }, { icon: true, label: 'w-16', value: 'w-60' }].map((row, i) => (
+            <div key={i} className="flex items-start gap-2.5">
+              <div className="w-3.5 h-3.5 rounded-full bg-slate-200 mt-0.5 shrink-0" />
+              <div className="space-y-1.5 flex-1">
+                <Sk w={row.label} h="h-2" />
+                <Sk w={row.value} h="h-3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </SkSection>
+
+      {/* Project Overview */}
+      <SkSection>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Sk w="w-20" h="h-2" />
+            <div className="h-7 w-32 rounded-lg bg-indigo-100" />
+          </div>
+          <div className="space-y-1.5">
+            <Sk w="w-32" h="h-2" />
+            <div className="flex flex-wrap gap-1.5">
+              {[88, 120, 96].map(w => <div key={w} className="h-7 rounded-lg bg-slate-200" style={{ width: w }} />)}
+            </div>
+          </div>
+        </div>
+      </SkSection>
+
+      {/* Design Vision */}
+      <SkSection>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Sk w="w-28" h="h-2" />
+            <div className="flex flex-wrap gap-1.5">
+              {[96, 72, 110, 80].map(w => <div key={w} className="h-7 rounded-lg bg-slate-200" style={{ width: w }} />)}
+            </div>
+            <div className="space-y-1.5 pt-1">
+              <Sk /><Sk w="w-11/12" /><Sk w="w-4/5" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Sk w="w-24" h="h-2" />
+            <div className="flex flex-wrap gap-1.5">
+              {[104, 88, 136, 80, 112].map(w => <div key={w} className="h-7 rounded-lg bg-slate-200" style={{ width: w }} />)}
+            </div>
+          </div>
+        </div>
+      </SkSection>
+
+      {/* Room Specifications */}
+      <SkSection>
+        <div className="space-y-5">
+          {[
+            { label: 'w-16', lines: ['w-full', 'w-11/12', 'w-4/5', 'w-2/3'] },
+            { label: 'w-36', lines: ['w-full', 'w-11/12', 'w-3/4'] },
+            { label: 'w-24', lines: ['w-full', 'w-11/12', 'w-4/5'] },
+          ].map((room, i) => (
+            <div key={i} className="space-y-1.5">
+              <Sk w={room.label} h="h-2" />
+              {room.lines.map((w, j) => <Sk key={j} w={w} />)}
+            </div>
+          ))}
+        </div>
+      </SkSection>
+
+      {/* Additional Requirements */}
+      <SkSection>
+        <div className="space-y-1.5">
+          <Sk /><Sk w="w-11/12" /><Sk w="w-4/5" /><Sk w="w-2/3" />
+        </div>
+      </SkSection>
     </motion.div>
   );
 }
@@ -348,7 +455,7 @@ export function ProjectBrief({
       <div className="flex-1 overflow-y-auto px-6 py-6" id="brief-document">
         <AnimatePresence mode="wait">
           {isRefining ? (
-            <AiLoadingState key="refining" />
+            <BriefSkeleton key="refining" />
           ) : !hasAnyContent && !generated ? (
             <motion.div
               key="empty"
@@ -375,7 +482,7 @@ export function ProjectBrief({
 
               {/* Contractor branding block */}
               {hasContractor && (
-                <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 flex items-start gap-3">
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 flex items-start gap-3 brief-contractor">
                   {contractor.logoDataUrl ? (
                     <img
                       src={contractor.logoDataUrl}
@@ -407,7 +514,7 @@ export function ProjectBrief({
               )}
 
               {/* Letterhead */}
-              <div className="text-center space-y-1 pb-5 border-b-2 border-slate-100">
+              <div className="text-center space-y-1 pb-5 border-b-2 border-slate-100 brief-letterhead">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
                     <Lock size={13} className="text-white" />
@@ -441,7 +548,7 @@ export function ProjectBrief({
               {/* Project Narrative — shown only after AI refinement */}
               {refinedData?.projectNarrative && (
                 <DocSection title="Project Narrative">
-                  <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4">
+                  <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4 brief-narrative">
                     <p className="text-sm leading-relaxed text-slate-700">
                       {refinedData.projectNarrative}
                     </p>
@@ -514,7 +621,7 @@ export function ProjectBrief({
                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Lifestyle Goals</p>
                     <TagList items={data.lifestyleGoals} placeholder="No goals selected" />
                     {refinedData && (refinedData.lifestyleScopeItems?.length ?? 0) > 0 && (
-                      <ul className="mt-2.5 space-y-1.5">
+                      <ul className="mt-2.5 space-y-1.5 brief-scope-list">
                         {(refinedData.lifestyleScopeItems ?? []).map((item, i) => (
                           <li key={i} className="flex items-start gap-2">
                             <span className="w-1 h-1 rounded-full bg-indigo-400 mt-2 shrink-0" />
@@ -571,34 +678,36 @@ export function ProjectBrief({
 
               {/* Signature — shown after generation */}
               {generated && (
-                <DocSection title="Client Acknowledgement">
-                  {signatureDataUrl ? (
-                    <div className="space-y-2">
-                      <div className="rounded-xl border-2 border-slate-100 bg-slate-50 p-4 flex justify-center">
-                        <img
-                          src={signatureDataUrl}
-                          alt="Client signature"
-                          className="h-20 max-w-xs object-contain"
-                        />
+                <div className="brief-signature">
+                  <DocSection title="Client Acknowledgement">
+                    {signatureDataUrl ? (
+                      <div className="space-y-2">
+                        <div className="rounded-xl border-2 border-slate-100 bg-slate-50 p-4 flex justify-center">
+                          <img
+                            src={signatureDataUrl}
+                            alt="Client signature"
+                            className="h-20 max-w-xs object-contain"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                            Signature captured — included in PDF
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => onSignatureChange('')}
+                            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            Re-sign
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                          Signature captured — included in PDF
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => onSignatureChange('')}
-                          className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
-                        >
-                          Re-sign
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <SignatureField onSignatureChange={onSignatureChange} />
-                  )}
-                </DocSection>
+                    ) : (
+                      <SignatureField onSignatureChange={onSignatureChange} />
+                    )}
+                  </DocSection>
+                </div>
               )}
 
               {/* Footer */}
@@ -608,7 +717,7 @@ export function ProjectBrief({
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2, duration: 0.3 }}
-                    className="pt-4 border-t border-slate-100"
+                    className="pt-4 border-t border-slate-100 brief-footer"
                   >
                     <p className="text-[10px] text-slate-400 text-center leading-relaxed">
                       Generated by ScopeLock · {generatedDate} · Ref {refNumber}
