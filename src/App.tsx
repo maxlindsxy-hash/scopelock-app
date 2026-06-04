@@ -310,7 +310,11 @@ export default function App() {
           text += dec.decode(value, { stream: true });
         }
         text += dec.decode();
-        const raw: unknown = JSON.parse(text);
+        // Strip markdown code fences if the model wraps its JSON output
+        const jsonText = text.replace(/^```(?:json)?\s*/m, '').replace(/```\s*$/m, '').trim();
+        // Fall back to regex extraction if there's still surrounding prose
+        const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+        const raw: unknown = JSON.parse(jsonMatch ? jsonMatch[0] : jsonText);
         if (!isValidRefinedData(raw)) throw new Error('Unexpected response shape from AI');
         refined = raw;
       } catch {
