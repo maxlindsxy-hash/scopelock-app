@@ -298,7 +298,19 @@ export default function App() {
           clearTimeout(timeoutId);
         }
         if (!response!.ok) throw new Error(`API ${response!.status}`);
-        const raw: unknown = await response!.json();
+        // Read streamed text response — accumulate chunks then parse JSON.
+        // Streaming keeps the edge proxy alive for the full generation duration.
+        const reader = response!.body?.getReader();
+        if (!reader) throw new Error('No response body');
+        const dec = new TextDecoder();
+        let text = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          text += dec.decode(value, { stream: true });
+        }
+        text += dec.decode();
+        const raw: unknown = JSON.parse(text);
         if (!isValidRefinedData(raw)) throw new Error('Unexpected response shape from AI');
         refined = raw;
       } catch {

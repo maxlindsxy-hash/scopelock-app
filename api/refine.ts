@@ -1,3 +1,5 @@
+export const config = { runtime: 'edge' };
+
 declare const process: { env: Record<string, string | undefined> };
 
 const SYSTEM_PROMPT = `You are a senior architectural scope writer for ScopeLock, a residential construction and renovation platform used by Australian building contractors.
@@ -104,6 +106,7 @@ export default async function handler(request: Request): Promise<Response> {
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 4096,
+        stream: true,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: JSON.stringify(data, null, 2) }],
       }),
@@ -117,35 +120,49 @@ export default async function handler(request: Request): Promise<Response> {
       );
     }
 
-    const payload = await anthropicRes.json() as {
-      content: Array<{ type: string; text: string }>;
-    };
+    // Extract raw text from Anthropic's SSE stream and forward to client.
+    // First byte arrives in <1s, keeping edge proxy connections alive for the
+    // full generation regardless of how long the AI takes.
+    const readable = new ReadableStream({
+      async start(controller) {
+        const reader = anthropicRes.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              const payload = line.slice(6).trim();
+              if (!payload || payload === '[DONE]') continue;
+              try {
+                const event = JSON.parse(payload) as {
+                  type: string;
+                  delta?: { type: string; text?: string };
+                };
+                if (
+                  event.type === 'content_block_delta' &&
+                  event.delta?.type === 'text_delta' &&
+                  event.delta.text
+                ) {
+                  controller.enqueue(new TextEncoder().encode(event.delta.text));
+                }
+              } catch { /* skip malformed SSE lines */ }
+            }
+          }
+        } finally {
+          controller.close();
+        }
+      },
+    });
 
-    const textBlock = payload.content?.find((b) => b.type === 'text');
-    if (!textBlock) {
-      return new Response(JSON.stringify({ error: 'No text in AI response' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    let refined: unknown;
-    try {
-      refined = JSON.parse(textBlock.text);
-    } catch {
-      const match = textBlock.text.match(/\{[\s\S]*\}/);
-      if (!match) {
-        return new Response(JSON.stringify({ error: 'Could not extract JSON from AI response' }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-      refined = JSON.parse(match[0]);
-    }
-
-    return new Response(JSON.stringify(refined), {
+    return new Response(readable, {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error';
