@@ -51,6 +51,7 @@ const STAGE_SUBTITLES = [
 
 const CONTRACTOR_KEY = 'scopelock_contractor_v1';
 const SESSIONS_KEY = 'scopelock_sessions_v1';
+const ACTIVE_KEY = 'scopelock_active_v1';
 const MAX_SESSIONS = 40;
 
 function loadContractor(): ContractorProfile {
@@ -77,6 +78,33 @@ function saveSessions(sessions: Session[]) {
   try {
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions.slice(0, MAX_SESSIONS)));
   } catch { /* ignore */ }
+}
+
+interface ActiveDraft {
+  data: ProjectData;
+  stage: number;
+  briefGenerated: boolean;
+  refinedData: RefinedBriefData | null;
+  refNumber: string;
+  generatedDate: string;
+  currentSessionId: string;
+  sessionCreatedAt: string;
+}
+
+function loadActive(): ActiveDraft | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_KEY);
+    if (raw) return JSON.parse(raw) as ActiveDraft;
+  } catch { /* ignore */ }
+  return null;
+}
+
+function saveActive(draft: ActiveDraft) {
+  try { localStorage.setItem(ACTIVE_KEY, JSON.stringify(draft)); } catch { /* ignore */ }
+}
+
+function clearActive() {
+  try { localStorage.removeItem(ACTIVE_KEY); } catch { /* ignore */ }
 }
 
 function upsertSession(list: Session[], session: Session): Session[] {
@@ -114,6 +142,28 @@ function hasAnyData(d: ProjectData): boolean {
   );
 }
 
+// ─── Token-budget guardrails ──────────────────────────────────────────────────
+
+const FIELD_LIMITS: Partial<Record<keyof ProjectData, number>> = {
+  kitchenNotes: 800,
+  masterBedroomNotes: 800,
+  livingZoneNotes: 800,
+  additionalNotes: 1500,
+};
+
+function truncateFields(d: ProjectData): { payload: ProjectData; truncated: boolean } {
+  let truncated = false;
+  const payload = { ...d };
+  for (const [field, limit] of Object.entries(FIELD_LIMITS) as [keyof ProjectData, number][]) {
+    if (typeof payload[field] === 'string' && (payload[field] as string).length > limit) {
+      (payload as Record<keyof ProjectData, unknown>)[field] =
+        (payload[field] as string).slice(0, limit);
+      truncated = true;
+    }
+  }
+  return { payload, truncated };
+}
+
 // ─── Response validator ───────────────────────────────────────────────────────
 
 function isValidRefinedData(obj: unknown): obj is RefinedBriefData {
@@ -135,20 +185,20 @@ function isValidRefinedData(obj: unknown): obj is RefinedBriefData {
 
 export default function App() {
   // ── Form state ──────────────────────────────────────────────────────────────
-  const [data, setData] = useState<ProjectData>(initialProjectData);
-  const [stage, setStage] = useState(1);
+  const [data, setData] = useState<ProjectData>(() => loadActive()?.data ?? initialProjectData);
+  const [stage, setStage] = useState<number>(() => loadActive()?.stage ?? 1);
   const [direction, setDirection] = useState(1);
-  const [briefGenerated, setBriefGenerated] = useState(false);
+  const [briefGenerated, setBriefGenerated] = useState<boolean>(() => loadActive()?.briefGenerated ?? false);
   const [signatureDataUrl, setSignatureDataUrl] = useState('');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
-  const [refinedData, setRefinedData] = useState<RefinedBriefData | null>(null);
+  const [refinedData, setRefinedData] = useState<RefinedBriefData | null>(() => loadActive()?.refinedData ?? null);
 
   // ── Session identity ─────────────────────────────────────────────────────────
-  const [currentSessionId, setCurrentSessionId] = useState(generateId);
-  const [sessionCreatedAt, setSessionCreatedAt] = useState(() => new Date().toISOString());
-  const [refNumber, setRefNumber] = useState(makeRef);
-  const [generatedDate, setGeneratedDate] = useState(makeDate);
+  const [currentSessionId, setCurrentSessionId] = useState<string>(() => loadActive()?.currentSessionId ?? generateId());
+  const [sessionCreatedAt, setSessionCreatedAt] = useState<string>(() => loadActive()?.sessionCreatedAt ?? new Date().toISOString());
+  const [refNumber, setRefNumber] = useState<string>(() => loadActive()?.refNumber ?? makeRef());
+  const [generatedDate, setGeneratedDate] = useState<string>(() => loadActive()?.generatedDate ?? makeDate());
 
   // ── Persistent state ─────────────────────────────────────────────────────────
   const [contractor, setContractor] = useState<ContractorProfile>(loadContractor);
@@ -159,6 +209,11 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showNewProjectConfirm, setShowNewProjectConfirm] = useState(false);
+
+  // ── Persist active draft to localStorage on every relevant state change ────
+  useEffect(() => {
+    saveActive({ data, stage, briefGenerated, refinedData, refNumber, generatedDate, currentSessionId, sessionCreatedAt });
+  }, [data, stage, briefGenerated, refinedData, refNumber, generatedDate, currentSessionId, sessionCreatedAt]);
 
   // ── Persist signature changes back to the in-history session ──────────────
   useEffect(() => {
@@ -194,6 +249,7 @@ export default function App() {
   };
 
   const resetSession = () => {
+    clearActive();
     setData(initialProjectData);
     setStage(1);
     setDirection(1);
@@ -220,6 +276,13 @@ export default function App() {
       let refined: RefinedBriefData;
       let usedFallback = false;
 
+      const { payload, truncated } = truncateFields(data);
+      if (truncated) {
+        toast.warning('Notes trimmed to fit AI token budget — full text is still saved locally.', {
+          duration: 6000,
+        });
+      }
+
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20_000);
@@ -228,7 +291,7 @@ export default function App() {
           response = await fetch('/api/refine', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
+            body: JSON.stringify(payload),
             signal: controller.signal,
           });
         } finally {
