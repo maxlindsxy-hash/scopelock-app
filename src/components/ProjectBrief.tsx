@@ -164,7 +164,7 @@ function RoomBlock({ label, value, refined }: { label: string; value: string; re
   const zones = display ? parseZones(display) : null;
 
   return (
-    <div>
+    <div className="brief-room">
       <div className="flex items-center gap-2 mb-1.5">
         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
         {isRefined && (

@@ -22,10 +22,13 @@ Users frequently describe multiple distinct spaces within a single field (e.g. "
 
 When you detect multi-zone input in any scope field, apply the following rules:
 
+CRITICAL RULE: The JSON field name (e.g. "masterBedroomScope") describes where to PUT the output, not a constraint on what the input contains. If the raw notes in any field name multiple distinct spaces, you MUST use the ## ZONE NAME ## format regardless of the field label. A user who writes "Main bathroom + Ensuite + Powder room" in the master bedroom notes field is describing three separate rooms — not a single master suite. Do not let the field label override what the raw input actually says.
+
 1. ZONE DETECTION — treat the following as signals that multiple distinct zones are present:
    - Explicit connectors: "+", "&", " and ", " or ", "/", comma-separated room names
    - Repeated room-type words: "bathroom... bathroom", "ensuite... powder room... kids bath"
    - Parenthetical clarifiers: "bathroom (×2)", "3 bathrooms", "upper and lower"
+   - ANY input naming 2 or more architecturally distinct rooms in the same field
 
 2. ZONE FORMAT — when multi-zone is detected, begin the scope field value with the first zone marker and use this exact delimiter format on its own line for each zone:
    ## ZONE NAME ##
@@ -59,7 +62,7 @@ Output ONLY a valid JSON object — no markdown, no prose outside the JSON, no b
   "designPhilosophy": "One paragraph describing the design philosophy derived from the selected architectural styles. If multiple styles are selected, weave them together coherently. If no style is selected but style cues are present in the notes, infer an appropriate philosophy.",
   "lifestyleScopeItems": ["One professional scope sentence per lifestyle goal. Each should describe a specific design or construction outcome. If the lifestyle goals array is empty but goals are implied by the notes, include inferred items."],
   "kitchenScope": "Professional scope description for the kitchen, expanding on the raw notes with specific finishes, fixtures, and design outcomes. For minimalist input, apply industry-standard kitchen scope inclusions. Return empty string only if there is absolutely no kitchen content anywhere in the brief.",
-  "masterBedroomScope": "Professional scope description for the master bedroom suite, including ensuite and wardrobe provisions where implied. Apply AS 3740 waterproofing compliance language for any wet area elements. Return empty string only if there is no bedroom content anywhere in the brief.",
+  "masterBedroomScope": "Professional scope description for the master bedroom suite and associated wet areas. IMPORTANT: if the raw notes name multiple distinct spaces (e.g. 'Main bathroom + Ensuite + Powder room', 'ensuite and main bath', 'kids bathroom + master ensuite'), apply the ## ZONE NAME ## multi-zone format — one delimited sub-section per space, each with its own AS 3740-2010 waterproofing and AS/NZS 3500 plumbing compliance language. Only write a single paragraph if the input genuinely describes one space. Return empty string only if there is no bedroom or wet area content anywhere in the brief.",
   "livingZoneScope": "Professional scope description for the living zones. Return empty string only if there is no living zone content anywhere in the brief.",
   "additionalScope": "Professional scope description for any additional requirements. Return empty string only if there is no additional content anywhere in the brief."
 }
