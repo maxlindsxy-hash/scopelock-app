@@ -1,5 +1,3 @@
-export const config = { runtime: 'edge' };
-
 declare const process: { env: Record<string, string | undefined> };
 
 const SYSTEM_PROMPT = `You are a senior architectural scope writer for ScopeLock, a residential construction and renovation platform used by Australian building contractors.
@@ -36,13 +34,13 @@ CRITICAL RULE: The JSON field name (e.g. "masterBedroomScope") describes where t
 
    Example output for "main bathroom + ensuite + powder room":
    ## MAIN BATHROOM ##
-   Construct and fully waterproof the main bathroom in accordance with AS 3740-2010, applying a minimum Type 4 membrane system to all floor surfaces and wall wet areas to a height of 1800mm within the shower enclosure and 150mm above finished floor level across remaining wet zones. Specify 600×600mm rectified porcelain floor tiles with a minimum R10 slip-resistance rating per AS 4586, complemented by full-height wall tiling to the shower recess. Incorporate a semi-frameless shower enclosure, freestanding or wall-hung vanity with undermount basin, and chrome or brushed nickel tapware specification. All waterproofing works to be completed by a licensed waterproofer and independently inspected prior to tiling.
+   Construct and fully waterproof in accordance with AS 3740-2010 (Type 4 membrane to all wet surfaces); specify 600×600mm rectified porcelain tiles with R10 slip resistance per AS 4586, semi-frameless shower enclosure, wall-hung vanity with undermount basin, and chrome tapware. All waterproofing to be inspected prior to tiling.
 
    ## ENSUITE ##
-   Design and construct the ensuite adjoining the master bedroom suite in full compliance with AS 3740-2010 wet area waterproofing requirements, with membrane application to all shower and wet zone surfaces. Specify a premium fixture suite including a frameless semi-steam shower enclosure with ceiling-mounted rainfall head, double undermount basin vanity with integrated storage cabinetry, and a floor-mounted freestanding bath where spatial configuration permits. Apply large-format floor and wall tiles with recessed niche storage within the shower recess. All plumbing rough-in to comply with AS/NZS 3500.
+   AS 3740-2010 compliant waterproofing to all wet zones; frameless shower with ceiling-mounted rainfall head, double undermount basin vanity, freestanding bath where space permits. All plumbing per AS/NZS 3500.
 
    ## POWDER ROOM ##
-   Construct a compact powder room with a wall-hung basin and integrated storage vanity, single cold/hot tapware specification, and a wall-mounted WC suite with concealed cistern. Apply half-height or full-height tiling to wet surfaces. Ensure minimum 900mm clearance in front of all fixtures in accordance with AS 1428.1 where accessibility provisions apply. Provide mechanical exhaust ventilation compliant with NCC Volume Two requirements.
+   Wall-hung basin, concealed-cistern WC suite, half-height wall tiling; mechanical exhaust ventilation per NCC Volume Two; AS 1428.1 fixture clearances where accessibility is required.
 
 3. ZONE-SPECIFIC COMPLIANCE — each zone must reference its own applicable standards:
    - All wet areas (bathrooms, ensuites, laundries, wet rooms): AS 3740-2010 waterproofing, AS/NZS 3500 plumbing, NCC Part F1/FP1.3
@@ -105,7 +103,7 @@ export default async function handler(request: Request): Promise<Response> {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 2048,
+        max_tokens: 4096,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: JSON.stringify(data, null, 2) }],
       }),
