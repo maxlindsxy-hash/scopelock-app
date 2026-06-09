@@ -241,7 +241,7 @@ function buildUserMessage(transcript: ChatTranscript): string {
   const lines: string[] = [];
 
   // ── CLIENT INFORMATION (injected from intake form — authoritative) ──────────
-  const c = transcript.clientContact ?? {};
+  const c = transcript.clientContact ?? { name: '', email: '', phone: '', siteAddress: '' };
   lines.push('CLIENT INFORMATION (from intake form — use these values verbatim)');
   lines.push('══════════════════════════════════════════════════════════════════');
   lines.push(`Full Name:    ${c.name     || '(not provided)'}`);
