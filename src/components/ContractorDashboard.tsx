@@ -26,7 +26,7 @@ function EmptyState() {
 
 function SectionHeader({ label }: { label: string }) {
   return (
-    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</span>
+    <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#9b9895]">{label}</span>
   );
 }
 
@@ -34,8 +34,8 @@ function TranscriptField({ label, value }: { label: string; value: string }) {
   if (!value.trim()) return null;
   return (
     <div className="space-y-1.5">
-      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</span>
-      <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+      <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#9b9895]">{label}</span>
+      <p className="text-sm text-[#1c1b1a] leading-relaxed whitespace-pre-wrap bg-[#f7f6f4] rounded-xl px-4 py-3 border border-[rgba(28,27,26,0.08)]">
         {value}
       </p>
     </div>
@@ -46,12 +46,12 @@ function MetaRow({ icon, label, value }: { icon: React.ReactNode; label: string;
   if (!value.trim()) return null;
   return (
     <div className="flex items-start gap-3">
-      <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+      <div className="w-7 h-7 rounded-lg bg-[#f7f6f4] flex items-center justify-center shrink-0 mt-0.5">
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">{label}</p>
-        <p className="text-sm font-semibold text-slate-800 leading-snug">{value}</p>
+        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#9b9895] mb-0.5">{label}</p>
+        <p className="text-sm font-semibold text-[#1c1b1a] leading-snug">{value}</p>
       </div>
     </div>
   );
@@ -81,22 +81,22 @@ export function ContractorDashboard({ transcript, refNumber, isGenerating, onGen
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <MessageSquare size={15} className="text-indigo-500" />
-            <span className="text-xs font-bold uppercase tracking-widest text-indigo-500">
+            <span className="text-xs font-medium uppercase tracking-[0.2em] text-indigo-500">
               Raw Client Transcript
             </span>
           </div>
-          <h2 className="text-xl font-bold text-slate-900">
+          <h2 className="text-xl font-bold text-[#1c1b1a]">
             {clientContact?.name ? `${clientContact.name}'s Intake` : 'Client Intake Responses'}
           </h2>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-[#5a5755]">
             Exactly as typed — no AI modification. Review before generating the brief.
           </p>
         </div>
 
         {/* Ref + timestamp */}
-        <div className="flex items-center gap-4 text-xs text-slate-400 font-medium flex-wrap">
-          <span>Ref: <span className="text-slate-600 font-semibold">{refNumber}</span></span>
-          {submittedAt && <span>Submitted: <span className="text-slate-600">{submittedAt}</span></span>}
+        <div className="flex items-center gap-4 text-xs text-[#9b9895] font-medium flex-wrap">
+          <span>Ref: <span className="text-[#5a5755] font-semibold">{refNumber}</span></span>
+          {submittedAt && <span>Submitted: <span className="text-[#5a5755]">{submittedAt}</span></span>}
           {!completedAt && (
             <span className="flex items-center gap-1 text-amber-500">
               <AlertCircle size={12} />
@@ -106,19 +106,19 @@ export function ContractorDashboard({ transcript, refNumber, isGenerating, onGen
         </div>
 
         {/* Transcript card */}
-        <div className="rounded-2xl border-2 border-slate-200 bg-white overflow-hidden divide-y divide-slate-100">
+        <div className="rounded-2xl border-2 border-[rgba(28,27,26,0.08)] bg-white overflow-hidden divide-y divide-[rgba(28,27,26,0.06)]">
 
           {/* Client contact */}
           {clientContact?.name && (
             <div className="px-5 py-5 space-y-4">
               <SectionHeader label="Client Details" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
-                <MetaRow icon={<User size={13} className="text-slate-500" />} label="Name" value={clientContact.name} />
-                <MetaRow icon={<MessageSquare size={13} className="text-slate-500" />} label="Email" value={clientContact.email} />
+                <MetaRow icon={<User size={13} className="text-[#5a5755]" />} label="Name" value={clientContact.name} />
+                <MetaRow icon={<MessageSquare size={13} className="text-[#5a5755]" />} label="Email" value={clientContact.email} />
                 {clientContact.phone && (
-                  <MetaRow icon={<MessageSquare size={13} className="text-slate-500" />} label="Mobile" value={clientContact.phone} />
+                  <MetaRow icon={<MessageSquare size={13} className="text-[#5a5755]" />} label="Mobile" value={clientContact.phone} />
                 )}
-                <MetaRow icon={<MapPin size={13} className="text-slate-500" />} label="Site Address" value={clientContact.siteAddress} />
+                <MetaRow icon={<MapPin size={13} className="text-[#5a5755]" />} label="Site Address" value={clientContact.siteAddress} />
               </div>
             </div>
           )}
@@ -142,20 +142,20 @@ export function ContractorDashboard({ transcript, refNumber, isGenerating, onGen
               <SectionHeader label="Budget & Timeline" />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
                 {budget && (
-                  <div className="flex items-start gap-3 bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
-                    <DollarSign size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                  <div className="flex items-start gap-3 bg-[#f7f6f4] rounded-xl px-4 py-3 border border-[rgba(28,27,26,0.08)]">
+                    <DollarSign size={14} className="text-[#9b9895] mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Budget</p>
-                      <p className="text-sm font-semibold text-slate-800">{budget}</p>
+                      <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#9b9895] mb-0.5">Budget</p>
+                      <p className="text-sm font-semibold text-[#1c1b1a]">{budget}</p>
                     </div>
                   </div>
                 )}
                 {timeline && (
-                  <div className="flex items-start gap-3 bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
-                    <Calendar size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                  <div className="flex items-start gap-3 bg-[#f7f6f4] rounded-xl px-4 py-3 border border-[rgba(28,27,26,0.08)]">
+                    <Calendar size={14} className="text-[#9b9895] mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Timeline</p>
-                      <p className="text-sm font-semibold text-slate-800">{timeline}</p>
+                      <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#9b9895] mb-0.5">Timeline</p>
+                      <p className="text-sm font-semibold text-[#1c1b1a]">{timeline}</p>
                     </div>
                   </div>
                 )}
@@ -213,10 +213,10 @@ export function ContractorDashboard({ transcript, refNumber, isGenerating, onGen
         )}
 
         {/* Generate gate */}
-        <div className="rounded-2xl bg-slate-900 px-6 py-6 space-y-4">
+        <div className="rounded-2xl bg-[#1c1b1a] px-6 py-6 space-y-4">
           <div>
             <h3 className="font-bold text-white text-base">Ready to generate?</h3>
-            <p className="text-sm text-slate-400 mt-1 leading-relaxed">
+            <p className="text-sm text-[#9b9895] mt-1 leading-relaxed">
               Review the raw transcript above, then generate the NCC-compliant professional brief. The AI will only process this data after you click the button below.
             </p>
           </div>
@@ -235,7 +235,7 @@ export function ContractorDashboard({ transcript, refNumber, isGenerating, onGen
             className={`w-full flex items-center justify-center gap-2.5 py-4 rounded-xl
                        font-bold text-sm transition-all
                        ${isGenerating || !completedAt
-                         ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                         ? 'bg-[rgba(255,255,255,0.08)] text-[rgba(255,255,255,0.3)] cursor-not-allowed'
                          : 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-400 hover:to-violet-400'
                        }`}
           >
@@ -243,7 +243,7 @@ export function ContractorDashboard({ transcript, refNumber, isGenerating, onGen
             {isGenerating ? 'Generating Brief…' : !completedAt ? 'Awaiting client submission…' : '[ Generate Professional Brief ]'}
           </motion.button>
           {!completedAt && (
-            <p className="text-xs text-slate-500 text-center">
+            <p className="text-xs text-[#9b9895] text-center">
               The generate button activates once the client submits their chat.
             </p>
           )}

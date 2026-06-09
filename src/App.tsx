@@ -454,7 +454,7 @@ export default function App() {
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#fcfbf9]">
       <Toaster position="top-center" richColors expand={false} />
 
       {/* Contractor settings overlay */}
@@ -502,13 +502,13 @@ export default function App() {
                   <AlertTriangle size={18} className="text-amber-500" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900">Start a new project?</h3>
+                  <h3 className="font-bold text-[#1c1b1a]">Start a new project?</h3>
                   {briefGenerated ? (
-                    <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                    <p className="text-sm text-[#5a5755] mt-1 leading-relaxed">
                       Your generated brief is already saved in History.
                     </p>
                   ) : (
-                    <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                    <p className="text-sm text-[#5a5755] mt-1 leading-relaxed">
                       Save your current progress as a draft before starting fresh?
                     </p>
                   )}
@@ -517,8 +517,8 @@ export default function App() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setShowNewProjectConfirm(false)}
-                  className="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600
-                             font-semibold text-sm hover:bg-slate-50 transition-colors"
+                  className="flex-1 py-2.5 rounded-xl border-2 border-[rgba(28,27,26,0.08)] text-[#5a5755]
+                             font-semibold text-sm hover:bg-[#f7f6f4] transition-colors"
                 >
                   Cancel
                 </button>
@@ -536,7 +536,7 @@ export default function App() {
                   className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors
                     ${briefGenerated
                       ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      : 'bg-[#f7f6f4] text-[#5a5755] hover:bg-[rgba(28,27,26,0.06)]'
                     }`}
                 >
                   {briefGenerated ? 'Start New' : 'Discard'}
@@ -567,19 +567,19 @@ export default function App() {
               className="absolute bottom-0 inset-x-0 bg-white rounded-t-3xl shadow-2xl
                          max-h-[92vh] flex flex-col overflow-hidden"
             >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(28,27,26,0.08)] shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
                     <Lock size={13} className="text-white" />
                   </div>
-                  <span className="font-semibold text-slate-800">Brief Preview</span>
+                  <span className="font-semibold text-[#1c1b1a]">Brief Preview</span>
                 </div>
                 <button
                   onClick={() => setShowMobilePreview(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center
-                             active:bg-slate-200 transition-colors"
+                  className="w-8 h-8 rounded-full bg-[#f7f6f4] flex items-center justify-center
+                             active:bg-[rgba(28,27,26,0.06)] transition-colors"
                 >
-                  <X size={15} className="text-slate-500" />
+                  <X size={15} className="text-[#5a5755]" />
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto">
@@ -597,7 +597,7 @@ export default function App() {
         <div className={view === 'contractor' ? 'lg:w-[60%] lg:h-screen lg:overflow-y-auto' : 'flex-1 flex flex-col'}>
 
           {/* Header */}
-          <div className="bg-white border-b border-slate-100 px-4 py-3.5 sticky top-0 z-10 no-print">
+          <div className="bg-white border-b border-[rgba(28,27,26,0.08)] px-4 py-3.5 sticky top-0 z-10 no-print">
             <div className="max-w-2xl mx-auto flex items-center gap-2">
 
               {/* Brand */}
@@ -605,9 +605,9 @@ export default function App() {
                 <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0">
                   <Lock size={15} className="text-white" />
                 </div>
-                <span className="font-bold text-slate-900 text-base tracking-tight">ScopeLock</span>
-                <span className="text-slate-300 hidden md:inline">·</span>
-                <span className="text-xs text-slate-400 hidden md:inline font-medium truncate">
+                <span className="font-bold text-[#1c1b1a] text-base tracking-tight">ScopeLock</span>
+                <span className="text-[#9b9895] hidden md:inline">·</span>
+                <span className="text-xs text-[#9b9895] hidden md:inline font-medium truncate">
                   {view === 'contractor' ? 'Contractor Dashboard' : 'Client Intake'}
                 </span>
               </div>
@@ -634,8 +634,8 @@ export default function App() {
                   onClick={() => setShowHistory(true)}
                   title="Session history"
                   className="relative flex items-center gap-1.5 px-2.5 py-2 rounded-xl
-                             border-2 border-slate-200 text-slate-500 text-xs font-semibold
-                             hover:border-slate-300 hover:bg-slate-50 transition-all"
+                             border-2 border-[rgba(28,27,26,0.08)] text-[#5a5755] text-xs font-semibold
+                             hover:border-[rgba(28,27,26,0.14)] hover:bg-[#f7f6f4] transition-all"
                 >
                   <History size={14} />
                   <span className="hidden sm:inline">History</span>
@@ -652,8 +652,8 @@ export default function App() {
                   onClick={handleNewProject}
                   title="New project"
                   className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl
-                             bg-slate-100 text-slate-600 text-xs font-semibold
-                             hover:bg-slate-200 transition-all"
+                             bg-[#f7f6f4] text-[#5a5755] text-xs font-semibold
+                             hover:bg-[rgba(28,27,26,0.06)] transition-all"
                 >
                   <FilePlus2 size={14} />
                   <span className="hidden sm:inline">New</span>
@@ -664,7 +664,7 @@ export default function App() {
                   onClick={() => setShowSettings(true)}
                   title="Contractor profile"
                   className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border-2
-                             border-slate-200 text-slate-500 text-xs font-semibold
+                             border-[rgba(28,27,26,0.08)] text-[#5a5755] text-xs font-semibold
                              hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50
                              transition-all max-w-[120px]"
                 >
@@ -708,7 +708,7 @@ export default function App() {
 
         {/* Right panel — Brief preview (contractor view, desktop only) */}
         {view === 'contractor' && (
-          <div className="hidden lg:flex lg:flex-col lg:w-[40%] lg:h-screen border-l border-slate-200">
+          <div className="hidden lg:flex lg:flex-col lg:w-[40%] lg:h-screen border-l border-[rgba(28,27,26,0.08)]">
             <ProjectBrief {...briefProps} />
           </div>
         )}

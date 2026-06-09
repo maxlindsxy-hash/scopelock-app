@@ -15,13 +15,13 @@ const C = {
   indigoLight: '#eef2ff',
   indigoBorder: '#c7d2fe',
   indigoText: '#3730a3',
-  dark: '#0f172a',
-  body: '#334155',
-  muted: '#64748b',
-  faint: '#94a3b8',
-  placeholder: '#cbd5e1',
-  border: '#e2e8f0',
-  bgLight: '#f8fafc',
+  dark: '#1c1b1a',
+  body: '#5a5755',
+  muted: '#5a5755',
+  faint: '#9b9895',
+  placeholder: '#c5c2bf',
+  border: '#e8e6e3',
+  bgLight: '#f7f6f4',
   white: '#ffffff',
   bullet: '#818cf8',
 };
@@ -268,20 +268,17 @@ function Divider({ title }: { title: string }) {
 }
 
 function FieldRow({ label, value }: { label: string; value: string }) {
+  if (!value) return null;
   return (
     <View style={styles.fieldRow}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      {value ? (
-        <Text style={styles.fieldValue}>{value}</Text>
-      ) : (
-        <Text style={styles.fieldEmpty}>Not entered</Text>
-      )}
+      <Text style={styles.fieldValue}>{value}</Text>
     </View>
   );
 }
 
 function TagRow({ items }: { items: string[] }) {
-  if (items.length === 0) return <Text style={styles.fieldEmpty}>None selected</Text>;
+  if (items.length === 0) return null;
   return (
     <View style={styles.tagsWrap}>
       {items.map((item) => (
@@ -438,60 +435,71 @@ export function BriefPDF({
               ['Master Bedroom Suite', data.masterBedroomNotes, refinedData?.masterBedroomScope],
               ['Living Zones', data.livingZoneNotes, refinedData?.livingZoneScope],
             ] as [string, string, string | undefined][]
-          ).map(([label, raw, refined]) => {
-            const display = refined && refined !== raw ? refined : raw;
-            return (
-              <View key={label} style={styles.roomBlock}>
-                <Text style={styles.roomLabel}>{label}</Text>
-                <Text style={display ? styles.roomText : styles.roomTextEmpty}>
-                  {display || 'No notes entered'}
-                </Text>
-              </View>
-            );
-          })}
+          )
+            .filter(([_label, raw, refined]) => !!(refined || raw))
+            .map(([label, raw, refined]) => {
+              const display = refined && refined !== raw ? refined : raw;
+              return (
+                <View key={label} style={styles.roomBlock}>
+                  <Text style={styles.roomLabel}>{label}</Text>
+                  <Text style={styles.roomText}>{display}</Text>
+                </View>
+              );
+            })}
         </View>
 
         {/* ── 5. Additional Requirements ── */}
-        <View style={styles.section}>
-          <Divider title="Additional Requirements" />
-          {refinedData?.additionalScope && refinedData.additionalScope !== data.additionalNotes ? (
-            <Text style={styles.notesText}>{refinedData.additionalScope}</Text>
-          ) : (
-            <Text style={data.additionalNotes ? styles.notesText : styles.notesEmpty}>
-              {data.additionalNotes || 'No additional requirements noted.'}
+        {(refinedData?.additionalScope || data.additionalNotes) ? (
+          <View style={styles.section}>
+            <Divider title="Additional Requirements" />
+            <Text style={styles.notesText}>
+              {refinedData?.additionalScope && refinedData.additionalScope !== data.additionalNotes
+                ? refinedData.additionalScope
+                : data.additionalNotes}
             </Text>
-          )}
-        </View>
+          </View>
+        ) : null}
 
-        {/* ── 6. Client Acknowledgement & Signature ── */}
+        {/* ── 6. Dual Signature Block ── */}
         <View style={styles.sigSection}>
-          <Text style={styles.sigTitle}>Client Acknowledgement</Text>
+          <Text style={styles.sigTitle}>Signatures &amp; Acknowledgement</Text>
           <Text style={styles.sigStatement}>
             I/We confirm that the information captured in this project brief accurately
             reflects our requirements and preferences as discussed with the contractor.
           </Text>
 
           <View style={styles.sigRow}>
-            <View style={styles.sigBox}>
+            {/* LEFT — Contractor Authorisation */}
+            <View style={[styles.sigBox, { marginRight: 12 }]}>
+              <View style={styles.sigBlank} />
+              <View style={styles.sigLine} />
+              <Text style={styles.sigLineLabel}>Contractor Authorisation</Text>
+              {contractor.companyName ? (
+                <Text style={{ fontSize: 7.5, color: C.muted, marginTop: 2, textAlign: 'center' }}>
+                  {contractor.companyName}
+                </Text>
+              ) : null}
+            </View>
+
+            {/* RIGHT — Client Acknowledgement */}
+            <View style={[styles.sigBox, { marginLeft: 12 }]}>
               {signatureDataUrl ? (
                 <Image src={signatureDataUrl} style={styles.sigImage} />
               ) : (
                 <View style={styles.sigBlank} />
               )}
               <View style={styles.sigLine} />
-              <Text style={styles.sigLineLabel}>Client Signature</Text>
-            </View>
-
-            <View style={styles.sigBox}>
-              <View style={styles.sigBlank} />
-              <View style={styles.sigLine} />
-              <Text style={styles.sigLineLabel}>Printed Name</Text>
-            </View>
-
-            <View style={[styles.sigBox, { flex: 0.6 }]}>
-              <View style={styles.sigBlank} />
-              <View style={styles.sigLine} />
-              <Text style={styles.sigLineLabel}>Date</Text>
+              <Text style={styles.sigLineLabel}>Client Acknowledgement</Text>
+              {data.clientName ? (
+                <Text style={{ fontSize: 7.5, color: C.muted, marginTop: 2, textAlign: 'center' }}>
+                  {data.clientName}
+                </Text>
+              ) : null}
+              {generatedDate ? (
+                <Text style={{ fontSize: 7, color: C.faint, marginTop: 1, textAlign: 'center' }}>
+                  {generatedDate}
+                </Text>
+              ) : null}
             </View>
           </View>
         </View>

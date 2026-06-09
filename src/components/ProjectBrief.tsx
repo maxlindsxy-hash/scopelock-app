@@ -123,23 +123,23 @@ function DocSection({ title, children }: { title: string; children: React.ReactN
   return (
     <div className="space-y-3 brief-section">
       <div className="flex items-center gap-2">
-        <div className="h-px flex-1 bg-slate-100" />
-        <h3 className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 px-1">
+        <div className="h-px flex-1 bg-[rgba(28,27,26,0.08)]" />
+        <h3 className="text-[9px] font-medium uppercase tracking-[0.25em] text-[#9b9895] px-1">
           {title}
         </h3>
-        <div className="h-px flex-1 bg-slate-100" />
+        <div className="h-px flex-1 bg-[rgba(28,27,26,0.08)]" />
       </div>
       {children}
     </div>
   );
 }
 
-function TagList({ items, placeholder }: { items: string[]; placeholder: string }) {
-  if (items.length === 0) return <p className="text-sm text-slate-300 italic">{placeholder}</p>;
+function TagList({ items, placeholder: _placeholder }: { items: string[]; placeholder?: string }) {
+  if (items.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-1.5 brief-tags">
       {items.map((item) => (
-        <span key={item} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-medium">
+        <span key={item} className="px-2.5 py-1 rounded-lg bg-[#f7f6f4] border border-[rgba(28,27,26,0.06)] text-[#5a5755] text-xs font-medium">
           {item}
         </span>
       ))}
@@ -160,13 +160,14 @@ function parseZones(text: string): Array<{ name: string; body: string }> | null 
 
 function RoomBlock({ label, value, refined }: { label: string; value: string; refined?: string }) {
   const display = refined || value;
+  if (!display) return null;
   const isRefined = !!(refined && refined !== value);
-  const zones = display ? parseZones(display) : null;
+  const zones = parseZones(display);
 
   return (
     <div className="brief-room">
       <div className="flex items-center gap-2 mb-1.5">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
+        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#9b9895]">{label}</p>
         {isRefined && (
           <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-[9px] font-bold uppercase tracking-wide text-indigo-500">
             <Sparkles size={8} />
@@ -182,16 +183,14 @@ function RoomBlock({ label, value, refined }: { label: string; value: string; re
               <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-indigo-400 mb-1">
                 {zone.name}
               </p>
-              <p className="text-sm leading-relaxed text-slate-700">
+              <p className="text-sm leading-relaxed text-[#5a5755]">
                 {zone.body || '—'}
               </p>
             </div>
           ))}
         </div>
       ) : (
-        <p className={`text-sm leading-relaxed ${display ? 'text-slate-700' : 'text-slate-300 italic'}`}>
-          {display || 'No notes entered'}
-        </p>
+        <p className="text-sm leading-relaxed text-[#5a5755]">{display}</p>
       )}
     </div>
   );
@@ -200,16 +199,16 @@ function RoomBlock({ label, value, refined }: { label: string; value: string; re
 // ─── Skeleton helpers ─────────────────────────────────────────────────────────
 
 function Sk({ w = 'w-full', h = 'h-3' }: { w?: string; h?: string }) {
-  return <div className={`${h} ${w} rounded-full bg-slate-200`} />;
+  return <div className={`${h} ${w} rounded-full bg-[rgba(28,27,26,0.08)]`} />;
 }
 
 function SkSection({ children }: { children: React.ReactNode }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <div className="h-px flex-1 bg-slate-200" />
-        <div className="h-2 w-24 rounded-full bg-slate-200" />
-        <div className="h-px flex-1 bg-slate-200" />
+        <div className="h-px flex-1 bg-[rgba(28,27,26,0.06)]" />
+        <div className="h-2 w-24 rounded-full bg-[rgba(28,27,26,0.08)]" />
+        <div className="h-px flex-1 bg-[rgba(28,27,26,0.06)]" />
       </div>
       {children}
     </div>
@@ -227,8 +226,8 @@ function BriefSkeleton() {
       className="animate-pulse max-w-prose mx-auto space-y-6 py-2"
     >
       {/* Contractor block */}
-      <div className="rounded-xl bg-slate-100 border border-slate-200 p-4 flex items-start gap-3">
-        <div className="w-10 h-10 rounded-lg bg-slate-200 shrink-0" />
+      <div className="rounded-xl bg-[#f7f6f4] border border-[rgba(28,27,26,0.08)] p-4 flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-[rgba(28,27,26,0.08)] shrink-0" />
         <div className="space-y-2 flex-1 min-w-0">
           <Sk w="w-40" h="h-3" />
           <Sk w="w-28" h="h-2.5" />
@@ -237,9 +236,9 @@ function BriefSkeleton() {
       </div>
 
       {/* Letterhead */}
-      <div className="text-center space-y-2 pb-5 border-b-2 border-slate-100">
+      <div className="text-center space-y-2 pb-5 border-b-2 border-[rgba(28,27,26,0.08)]">
         <div className="flex items-center justify-center gap-2 mb-1">
-          <div className="w-7 h-7 rounded-lg bg-slate-200" />
+          <div className="w-7 h-7 rounded-lg bg-[rgba(28,27,26,0.08)]" />
           <Sk w="w-28" h="h-4" />
         </div>
         <Sk w="w-52 mx-auto" h="h-3" />
@@ -280,7 +279,7 @@ function BriefSkeleton() {
           <div className="space-y-1.5">
             <Sk w="w-32" h="h-2" />
             <div className="flex flex-wrap gap-1.5">
-              {[88, 120, 96].map(w => <div key={w} className="h-7 rounded-lg bg-slate-200" style={{ width: w }} />)}
+              {[88, 120, 96].map(w => <div key={w} className="h-7 rounded-lg bg-[rgba(28,27,26,0.08)]" style={{ width: w }} />)}
             </div>
           </div>
         </div>
@@ -292,7 +291,7 @@ function BriefSkeleton() {
           <div className="space-y-1.5">
             <Sk w="w-28" h="h-2" />
             <div className="flex flex-wrap gap-1.5">
-              {[96, 72, 110, 80].map(w => <div key={w} className="h-7 rounded-lg bg-slate-200" style={{ width: w }} />)}
+              {[96, 72, 110, 80].map(w => <div key={w} className="h-7 rounded-lg bg-[rgba(28,27,26,0.08)]" style={{ width: w }} />)}
             </div>
             <div className="space-y-1.5 pt-1">
               <Sk /><Sk w="w-11/12" /><Sk w="w-4/5" />
@@ -301,7 +300,7 @@ function BriefSkeleton() {
           <div className="space-y-1.5">
             <Sk w="w-24" h="h-2" />
             <div className="flex flex-wrap gap-1.5">
-              {[104, 88, 136, 80, 112].map(w => <div key={w} className="h-7 rounded-lg bg-slate-200" style={{ width: w }} />)}
+              {[104, 88, 136, 80, 112].map(w => <div key={w} className="h-7 rounded-lg bg-[rgba(28,27,26,0.08)]" style={{ width: w }} />)}
             </div>
           </div>
         </div>
@@ -377,13 +376,13 @@ export function ProjectBrief({
   return (
     <div className="h-full flex flex-col bg-white">
       {/* ── Panel toolbar ── */}
-      <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-slate-100
+      <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-[rgba(28,27,26,0.08)]
                        px-5 py-3 flex items-center justify-between z-10 no-print shrink-0">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full transition-colors ${
             isRefining ? 'bg-indigo-400 animate-pulse' : generated ? 'bg-emerald-500' : 'bg-amber-400'
           }`} />
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <span className="text-xs font-medium text-[#5a5755] uppercase tracking-[0.15em]">
             {isRefining ? 'AI Processing' : generated ? 'Brief Generated' : 'Live Preview'}
           </span>
         </div>
@@ -397,8 +396,8 @@ export function ProjectBrief({
                         transition-all ${generated && !isRefining
                           ? copied
                             ? 'bg-emerald-50 text-emerald-600'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          : 'bg-slate-50 text-slate-300 cursor-not-allowed'
+                            : 'bg-[#f7f6f4] text-[#5a5755] hover:bg-[rgba(28,27,26,0.06)]'
+                          : 'bg-[#f7f6f4] text-[#9b9895] cursor-not-allowed'
                         }`}
           >
             {copied ? <Check size={12} /> : <Copy size={12} />}
@@ -412,8 +411,8 @@ export function ProjectBrief({
             title="Export as .md file"
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold
                         transition-all ${generated && !isRefining
-                          ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          : 'bg-slate-50 text-slate-300 cursor-not-allowed'
+                          ? 'bg-[#f7f6f4] text-[#5a5755] hover:bg-[rgba(28,27,26,0.06)]'
+                          : 'bg-[#f7f6f4] text-[#9b9895] cursor-not-allowed'
                         }`}
           >
             <FileDown size={12} />
@@ -426,8 +425,8 @@ export function ProjectBrief({
             title="Print"
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold
                         transition-all ${generated && !isRefining
-                          ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          : 'bg-slate-50 text-slate-300 cursor-not-allowed'
+                          ? 'bg-[#f7f6f4] text-[#5a5755] hover:bg-[rgba(28,27,26,0.06)]'
+                          : 'bg-[#f7f6f4] text-[#9b9895] cursor-not-allowed'
                         }`}
           >
             <Printer size={12} />
@@ -439,7 +438,7 @@ export function ProjectBrief({
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
                         transition-all ${generated && !isGeneratingPDF && !isRefining
                           ? 'bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800'
-                          : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                          : 'bg-[#f7f6f4] text-[#9b9895] cursor-not-allowed'
                         }`}
           >
             {isGeneratingPDF
@@ -464,10 +463,10 @@ export function ProjectBrief({
               exit={{ opacity: 0 }}
               className="flex flex-col items-center justify-center h-full min-h-64 text-center gap-3"
             >
-              <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center">
-                <Lock size={24} className="text-slate-300" />
+              <div className="w-14 h-14 rounded-2xl bg-[#f7f6f4] flex items-center justify-center">
+                <Lock size={24} className="text-[#9b9895]" />
               </div>
-              <p className="text-sm text-slate-400 max-w-[200px] leading-relaxed">
+              <p className="text-sm text-[#9b9895] max-w-[200px] leading-relaxed">
                 Your brief builds here as you fill the form
               </p>
             </motion.div>
@@ -482,31 +481,31 @@ export function ProjectBrief({
 
               {/* Contractor branding block */}
               {hasContractor && (
-                <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 flex items-start gap-3 brief-contractor">
+                <div className="rounded-xl bg-[#f7f6f4] border border-[rgba(28,27,26,0.08)] p-4 flex items-start gap-3 brief-contractor">
                   {contractor.logoDataUrl ? (
                     <img
                       src={contractor.logoDataUrl}
                       alt="Company logo"
-                      className="w-12 h-12 rounded-lg object-contain bg-white border border-slate-200 shrink-0"
+                      className="w-12 h-12 rounded-lg object-contain bg-white border border-[rgba(28,27,26,0.08)] shrink-0"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-lg bg-slate-200 flex items-center justify-center shrink-0">
-                      <Building2 size={16} className="text-slate-400" />
+                    <div className="w-10 h-10 rounded-lg bg-[rgba(28,27,26,0.08)] flex items-center justify-center shrink-0">
+                      <Building2 size={16} className="text-[#9b9895]" />
                     </div>
                   )}
                   <div className="min-w-0">
-                    <p className="font-semibold text-sm text-slate-800">{contractor.companyName}</p>
+                    <p className="font-semibold text-sm text-[#1c1b1a]">{contractor.companyName}</p>
                     {contractor.contactName && (
-                      <p className="text-xs text-slate-500 mt-0.5">{contractor.contactName}</p>
+                      <p className="text-xs text-[#5a5755] mt-0.5">{contractor.contactName}</p>
                     )}
                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-                      {contractor.phone && <span className="text-xs text-slate-400">{contractor.phone}</span>}
-                      {contractor.email && <span className="text-xs text-slate-400">{contractor.email}</span>}
+                      {contractor.phone && <span className="text-xs text-[#9b9895]">{contractor.phone}</span>}
+                      {contractor.email && <span className="text-xs text-[#9b9895]">{contractor.email}</span>}
                       {contractor.licenseNumber && (
-                        <span className="text-xs text-slate-400">Lic: {contractor.licenseNumber}</span>
+                        <span className="text-xs text-[#9b9895]">Lic: {contractor.licenseNumber}</span>
                       )}
                       {contractor.abn && (
-                        <span className="text-xs text-slate-400">ABN: {contractor.abn}</span>
+                        <span className="text-xs text-[#9b9895]">ABN: {contractor.abn}</span>
                       )}
                     </div>
                   </div>
@@ -514,18 +513,18 @@ export function ProjectBrief({
               )}
 
               {/* Letterhead */}
-              <div className="text-center space-y-1 pb-5 border-b-2 border-slate-100 brief-letterhead">
+              <div className="text-center space-y-1 pb-5 border-b-2 border-[rgba(28,27,26,0.08)] brief-letterhead">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
                     <Lock size={13} className="text-white" />
                   </div>
-                  <span className="font-bold text-slate-900 text-lg tracking-tight">ScopeLock</span>
+                  <span className="font-bold text-[#1c1b1a] text-lg tracking-tight">ScopeLock</span>
                 </div>
-                <h1 className="text-base font-bold text-slate-800">
+                <h1 className="text-base font-semibold text-[#1c1b1a]">
                   Project Brief &amp; Preliminary Scope
                 </h1>
                 {generated ? (
-                  <div className="flex items-center justify-center gap-3 text-xs text-slate-400 mt-2">
+                  <div className="flex items-center justify-center gap-3 text-xs text-[#9b9895] mt-2">
                     <span className="flex items-center gap-1"><Calendar size={11} />{generatedDate}</span>
                     <span>·</span>
                     <span className="flex items-center gap-1"><Hash size={11} />{refNumber}</span>
@@ -549,7 +548,7 @@ export function ProjectBrief({
               {refinedData?.projectNarrative && (
                 <DocSection title="Project Narrative">
                   <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-4 brief-narrative">
-                    <p className="text-sm leading-relaxed text-slate-700">
+                    <p className="text-sm leading-relaxed text-[#5a5755]">
                       {refinedData.projectNarrative}
                     </p>
                   </div>
@@ -559,122 +558,136 @@ export function ProjectBrief({
               {/* Client & Site */}
               <DocSection title="Client &amp; Project Details">
                 <div className="space-y-3">
-                  <div className="flex items-start gap-2.5">
-                    <User size={13} className="text-slate-400 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Client</p>
-                      <p className={`text-sm font-medium ${data.clientName ? 'text-slate-800' : 'text-slate-300 italic font-normal'}`}>
-                        {data.clientName || 'Client name not entered'}
-                      </p>
+                  {data.clientName && (
+                    <div className="flex items-start gap-2.5">
+                      <User size={13} className="text-[#9b9895] mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#9b9895] mb-0.5">Client</p>
+                        <p className="text-sm font-medium text-[#1c1b1a]">{data.clientName}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-start gap-2.5">
-                    <MapPin size={13} className="text-slate-400 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Site Address</p>
-                      <p className={`text-sm ${data.siteAddress ? 'text-slate-700' : 'text-slate-300 italic'}`}>
-                        {data.siteAddress || 'Site address not entered'}
-                      </p>
+                  )}
+                  {data.siteAddress && (
+                    <div className="flex items-start gap-2.5">
+                      <MapPin size={13} className="text-[#9b9895] mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#9b9895] mb-0.5">Site Address</p>
+                        <p className="text-sm text-[#5a5755]">{data.siteAddress}</p>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </DocSection>
 
               {/* Project Overview */}
               <DocSection title="Project Overview">
                 <div className="space-y-4">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Budget Range</p>
-                    {data.budgetRange ? (
+                  {data.budgetRange && (
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#9b9895] mb-1.5">Budget Range</p>
                       <span className="inline-flex px-3 py-1 bg-indigo-50 border border-indigo-200 rounded-lg text-sm font-semibold text-indigo-700">
                         {data.budgetRange}
                       </span>
-                    ) : (
-                      <p className="text-sm text-slate-300 italic">Not specified</p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Primary Motivations</p>
-                    <TagList items={data.primaryMotivation} placeholder="No motivations selected" />
-                    {refinedData?.motivationStatement && (
-                      <p className="text-xs text-slate-500 leading-relaxed mt-2 italic">
-                        {refinedData.motivationStatement}
-                      </p>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                  {data.primaryMotivation.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#9b9895] mb-1.5">Primary Motivations</p>
+                      <TagList items={data.primaryMotivation} />
+                      {refinedData?.motivationStatement && (
+                        <p className="text-xs text-[#5a5755] leading-relaxed mt-2 italic">
+                          {refinedData.motivationStatement}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </DocSection>
 
               {/* Design Vision */}
-              <DocSection title="Design Vision">
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Architectural Style</p>
-                    <TagList items={data.architecturalStyles} placeholder="No styles selected" />
-                    {refinedData?.designPhilosophy && (
-                      <p className="text-sm text-slate-600 leading-relaxed mt-2">
-                        {refinedData.designPhilosophy}
-                      </p>
+              {(data.architecturalStyles.length > 0 || data.lifestyleGoals.length > 0 || refinedData?.designPhilosophy) && (
+                <DocSection title="Design Vision">
+                  <div className="space-y-4">
+                    {(data.architecturalStyles.length > 0 || refinedData?.designPhilosophy) && (
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#9b9895] mb-1.5">Architectural Style</p>
+                        <TagList items={data.architecturalStyles} />
+                        {refinedData?.designPhilosophy && (
+                          <p className="text-sm text-[#5a5755] leading-relaxed mt-2">
+                            {refinedData.designPhilosophy}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {(data.lifestyleGoals.length > 0 || (refinedData?.lifestyleScopeItems?.length ?? 0) > 0) && (
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#9b9895] mb-1.5">Lifestyle Goals</p>
+                        <TagList items={data.lifestyleGoals} />
+                        {refinedData && (refinedData.lifestyleScopeItems?.length ?? 0) > 0 && (
+                          <ul className="mt-2.5 space-y-1.5 brief-scope-list">
+                            {(refinedData.lifestyleScopeItems ?? []).map((item, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="w-1 h-1 rounded-full bg-indigo-400 mt-2 shrink-0" />
+                                <span className="text-xs text-[#5a5755] leading-relaxed">{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     )}
                   </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Lifestyle Goals</p>
-                    <TagList items={data.lifestyleGoals} placeholder="No goals selected" />
-                    {refinedData && (refinedData.lifestyleScopeItems?.length ?? 0) > 0 && (
-                      <ul className="mt-2.5 space-y-1.5 brief-scope-list">
-                        {(refinedData.lifestyleScopeItems ?? []).map((item, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="w-1 h-1 rounded-full bg-indigo-400 mt-2 shrink-0" />
-                            <span className="text-xs text-slate-600 leading-relaxed">{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              </DocSection>
+                </DocSection>
+              )}
 
               {/* Room Specifications */}
-              <DocSection title="Room Specifications">
-                <div className="space-y-4">
-                  <RoomBlock
-                    label="Kitchen"
-                    value={data.kitchenNotes}
-                    refined={refinedData?.kitchenScope}
-                  />
-                  <RoomBlock
-                    label="Master Bedroom Suite"
-                    value={data.masterBedroomNotes}
-                    refined={refinedData?.masterBedroomScope}
-                  />
-                  <RoomBlock
-                    label="Living Zones"
-                    value={data.livingZoneNotes}
-                    refined={refinedData?.livingZoneScope}
-                  />
-                </div>
-              </DocSection>
+              {!!(
+                (refinedData?.kitchenScope || data.kitchenNotes) ||
+                (refinedData?.masterBedroomScope || data.masterBedroomNotes) ||
+                (refinedData?.livingZoneScope || data.livingZoneNotes)
+              ) && (
+                <DocSection title="Room Specifications">
+                  <div className="space-y-4">
+                    <RoomBlock
+                      label="Kitchen"
+                      value={data.kitchenNotes}
+                      refined={refinedData?.kitchenScope}
+                    />
+                    <RoomBlock
+                      label="Master Bedroom Suite"
+                      value={data.masterBedroomNotes}
+                      refined={refinedData?.masterBedroomScope}
+                    />
+                    <RoomBlock
+                      label="Living Zones"
+                      value={data.livingZoneNotes}
+                      refined={refinedData?.livingZoneScope}
+                    />
+                  </div>
+                </DocSection>
+              )}
 
               {/* Additional Requirements */}
-              <DocSection title="Additional Requirements">
-                {refinedData?.additionalScope ? (
-                  <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-[9px] font-bold uppercase tracking-wide text-indigo-500">
-                        <Sparkles size={8} />
-                        AI Enhanced
-                      </span>
+              {(refinedData?.additionalScope || data.additionalNotes) && (
+                <DocSection title="Additional Requirements">
+                  {refinedData?.additionalScope ? (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-[9px] font-bold uppercase tracking-wide text-indigo-500">
+                          <Sparkles size={8} />
+                          AI Enhanced
+                        </span>
+                      </div>
+                      <p className="text-sm leading-relaxed text-[#5a5755]">
+                        {refinedData.additionalScope}
+                      </p>
                     </div>
-                    <p className="text-sm leading-relaxed text-slate-700">
-                      {refinedData.additionalScope}
+                  ) : (
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap text-[#5a5755]">
+                      {data.additionalNotes}
                     </p>
-                  </div>
-                ) : (
-                  <p className={`text-sm leading-relaxed whitespace-pre-wrap ${data.additionalNotes ? 'text-slate-700' : 'text-slate-300 italic'}`}>
-                    {data.additionalNotes || 'No additional requirements noted.'}
-                  </p>
-                )}
-              </DocSection>
+                  )}
+                </DocSection>
+              )}
 
               {/* Signature — shown after generation */}
               {generated && (
@@ -682,7 +695,7 @@ export function ProjectBrief({
                   <DocSection title="Client Acknowledgement">
                     {signatureDataUrl ? (
                       <div className="space-y-2">
-                        <div className="rounded-xl border-2 border-slate-100 bg-slate-50 p-4 flex justify-center">
+                        <div className="rounded-xl border-2 border-[rgba(28,27,26,0.08)] bg-[#f7f6f4] p-4 flex justify-center">
                           <img
                             src={signatureDataUrl}
                             alt="Client signature"
@@ -697,7 +710,7 @@ export function ProjectBrief({
                           <button
                             type="button"
                             onClick={() => onSignatureChange('')}
-                            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                            className="text-xs text-[#9b9895] hover:text-[#5a5755] transition-colors"
                           >
                             Re-sign
                           </button>
@@ -717,9 +730,9 @@ export function ProjectBrief({
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2, duration: 0.3 }}
-                    className="pt-4 border-t border-slate-100 brief-footer"
+                    className="pt-4 border-t border-[rgba(28,27,26,0.08)] brief-footer"
                   >
-                    <p className="text-[10px] text-slate-400 text-center leading-relaxed">
+                    <p className="text-[10px] text-[#9b9895] text-center leading-relaxed">
                       Generated by ScopeLock · {generatedDate} · Ref {refNumber}
                       <br />
                       Preliminary brief — subject to design development and formal quotation.
