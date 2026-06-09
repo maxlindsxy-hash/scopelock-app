@@ -70,19 +70,25 @@ export default async function handler(req: Request): Promise<Response> {
   const submittedAt = new Date().toISOString();
   const submission = { sessionId, tenantId, submittedAt, transcript };
 
+  let kv_written = false;
+  let kv_error: string | null = null;
+
   if (kvAvailable()) {
     try {
       await kvSet(`intake:${tenantId}:${sessionId}`, submission);
       await kvLPush(`intake:${tenantId}:index`, sessionId);
+      kv_written = true;
     } catch (err) {
+      kv_error = String(err);
       console.error('[submit-intake] KV write failed:', err);
     }
   } else {
+    kv_error = 'KV_REST_API_URL or KV_REST_API_TOKEN not set';
     console.log(`[submit-intake] KV not provisioned — tenantId=${tenantId} sessionId=${sessionId} at=${submittedAt}`);
   }
 
   return new Response(
-    JSON.stringify({ success: true, sessionId, submittedAt }),
+    JSON.stringify({ success: true, sessionId, submittedAt, kv_written, kv_error }),
     { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
   );
 }
