@@ -2,72 +2,259 @@ export const config = { runtime: 'edge' };
 
 declare const process: { env: Record<string, string | undefined> };
 
-const SYSTEM_PROMPT = `You are a senior architectural scope writer for ScopeLock, a residential construction and renovation platform used by Australian building contractors.
+// ─── Compliance reference ─────────────────────────────────────────────────────
+// Key requirements from regulations.json, formatted for AI prompt embedding.
+// This is the grounding layer: the AI must anchor every scope statement here.
 
-Your role is to transform a client's rough notes and selections from a site meeting questionnaire into polished, professional architectural language suitable for a formal Project Brief document that a licensed builder would present to their client.
+const COMPLIANCE_REFERENCE = `
+AUSTRALIAN COMPLIANCE REFERENCE LIBRARY
+========================================
+All scope statements you generate MUST cite at least one applicable standard from this library.
+Do not invent non-existent standards. If a standard is not listed below, do not reference it.
 
-HANDLING MINIMALIST OR SHORTHAND INPUT:
-Many homeowners provide brief, colloquial, or incomplete notes during a site meeting (e.g. "nice kitchen", "big windows", "reno bathroom", "ensuite", "I want it modern"). This is expected and normal.
-When you encounter minimalist, shorthand, or vague input, do NOT simply echo it back. Instead, apply your deep knowledge of Australian residential construction, architectural best practice, and building standards to:
-- Extrapolate the likely full scope behind the shorthand (e.g. "nice kitchen" implies quality joinery, benchtop specification, appliance suite, and lighting design)
-- Expand the brief to include standard industry inclusions a qualified builder would anticipate for that scope item
-- Proactively incorporate relevant Australian Standards and NCC compliance requirements (e.g. AS 3740 waterproofing for all wet areas, AS 1428 accessibility provisions, AS 4970 tree protection, NCC Section J energy performance, NCC Volume One fire separation requirements)
-- Fill gaps with industry best-practice defaults appropriate to the project type, budget tier, and architectural style selected
-- Write as though you are a licensed building professional who fully understands what the client wants, even when they lack the technical vocabulary to express it precisely
+NCC 2022 VOLUME TWO — HOUSING PROVISIONS (Class 1 residential)
+──────────────────────────────────────────────────────────────
+• Part H1 — Structure: All structural works (wall removals, new openings, extensions, lintels, footings, slabs) require engineer certification and compliance with AS 1684 (timber), AS 3600 (concrete), or AS 1170 (structural actions).
+• Part H2 — Damp & Weatherproofing: External walls, roofs, and subfloors must resist water penetration. Sarking, flashings, and cavity construction mandatory for all new external envelope works.
+• Part H3 — Fire Safety: (a) Interconnected photoelectric smoke alarms in all bedrooms, hallways, and each storey. (b) Attached garage to habitable area: 90/90/90 fire-rated wall/ceiling, self-closing smoke-seal door. (c) BAL assessment required in bushfire-prone areas.
+• Part H4 — Health & Amenity: Habitable rooms minimum 2400mm ceiling height. Natural light ≥ 10% of floor area. Natural ventilation ≥ 5% of floor area or mechanical equivalent. Kitchens require ducted rangehood ventilation to exterior.
+• Part H5 — Sound Insulation: Party walls in Class 1a semi-detached dwellings require Rw+Ctr ≥ 50.
+• Part H6 — Energy Efficiency: New homes must achieve minimum 7-star NatHERS rating. Ceiling insulation minimum R3.5, wall insulation minimum R1.5. Double-glazed windows U-value ≤ 2.0. Building sealing mandatory (all ceiling penetrations sealed).
+• Part H7 — Livable Housing Design: Mandatory for all new Class 1a dwellings since May 2023. Minimum Silver LHA level: step-free path of travel, step-free entry, toilet and shower on entry level, 820mm minimum clear doorway openings, reinforced bathroom walls for future grab rails, 900mm minimum corridor clearances.
 
-NEVER return a scope field that simply restates the raw input. Always elevate it.
+AS 3740-2010 — WATERPROOFING OF DOMESTIC WET AREAS
+────────────────────────────────────────────────────
+• Shower recess floor + 150mm up walls minimum (Type 1). Full shower wall height to 1800mm AFF (Type 2). Entire bathroom floor + 100mm upstand (Type 3). Full floor-to-ceiling wet room (Type 4).
+• Shower floor: fall to drain minimum 1:60 gradient.
+• Bath surrounds: membrane 75mm above bath rim to all adjacent walls.
+• Laundry: full floor waterproofing where floor waste installed, 75mm upstand to all walls.
+• MANDATORY: Waterproofing inspection hold point — building surveyor must approve membrane before any tiling commences.
+• Critical: non-compliant waterproofing is the single most litigated building defect in Australia.
 
-HANDLING MULTI-ZONE INPUT:
-Users frequently describe multiple distinct spaces within a single field (e.g. "Main bathroom + Ensuite", "Kitchen and scullery", "Ensuite, kids bathroom & powder room", "master bath / guest bath"). These are architecturally separate zones with separate compliance obligations, structural requirements, and finish specifications. They must NEVER be bundled into a single generic paragraph.
+AS 4586-2013 — SLIP RESISTANCE CLASSIFICATION
+──────────────────────────────────────────────
+• Shower floors: P4 minimum (P5 recommended for textured tiles).
+• Bathroom/ensuite floors: P3 minimum.
+• External paving, driveways, pool surrounds: R10 minimum, R11 for steep external ramps.
+• Supplier slip resistance certificate must be provided before tile installation.
 
-When you detect multi-zone input in any scope field, apply the following rules:
+AS/NZS 3500:2021 — PLUMBING AND DRAINAGE (Parts 1–4)
+─────────────────────────────────────────────────────
+• All plumbing works by licensed plumber only. Certificate of Compliance issued on completion.
+• Tempering valve mandatory at all shower and bath outlets — maximum 50°C delivery per AS/NZS 3500.4.
+• Backflow prevention device required on all hose taps and irrigation connections (Part 1).
+• Drain grades: 50mm pipe 1:40, 100mm pipe 1:60 minimum fall (Part 2).
+• Hot water storage ≥ 60°C, delivery ≤ 50°C at risk outlets (Part 4).
+• Stormwater: all roof drainage to legal point of discharge; downpipes 50mm minimum, one per 30m² (Part 3).
 
-CRITICAL RULE: The JSON field name (e.g. "masterBedroomScope") describes where to PUT the output, not a constraint on what the input contains. If the raw notes in any field name multiple distinct spaces, you MUST use the ## ZONE NAME ## format regardless of the field label. A user who writes "Main bathroom + Ensuite + Powder room" in the master bedroom notes field is describing three separate rooms — not a single master suite. Do not let the field label override what the raw input actually says.
+AS 1288-2006 — GLASS IN BUILDINGS
+───────────────────────────────────
+• Safety glass (toughened/laminated to AS/NZS 2208) required: within 500mm of floor level, all shower screens, all door panels and sidelights.
+• Shower screens: minimum 6mm toughened glass, frameless panels to Category A or B.
+• Window fall protection: openable windows with sill < 1700mm AFF over a drop ≥ 2m must restrict opening to ≤ 125mm or have fixed bar protection.
 
-1. ZONE DETECTION — treat the following as signals that multiple distinct zones are present:
-   - Explicit connectors: "+", "&", " and ", " or ", "/", comma-separated room names
-   - Repeated room-type words: "bathroom... bathroom", "ensuite... powder room... kids bath"
-   - Parenthetical clarifiers: "bathroom (×2)", "3 bathrooms", "upper and lower"
-   - ANY input naming 2 or more architecturally distinct rooms in the same field
+AS 1428.1-2021 — DESIGN FOR ACCESS AND MOBILITY
+─────────────────────────────────────────────────
+• Minimum 820mm clear doorway opening (accessible doors).
+• Minimum 1000mm corridor clear width, 1200mm preferred.
+• Turning space: 1540mm × 1540mm unobstructed.
+• Bathroom reinforcing: walls capable of supporting future grab rails (33kg pull minimum).
+• Floor surface: maximum 1:14 slope on accessible paths.
 
-2. ZONE FORMAT — when multi-zone is detected, begin the scope field value with the first zone marker and use this exact delimiter format on its own line for each zone:
-   ## ZONE NAME ##
-   [Full professional scope for this zone, 2–4 sentences minimum]
+AS 4970-2009 — PROTECTION OF TREES ON DEVELOPMENT SITES
+─────────────────────────────────────────────────────────
+• Tree Protection Zone (TPZ): 12 × trunk diameter at 1.4m AFF. No excavation, fill, or compaction within TPZ.
+• Structural Root Zone (SRZ): inner 25% of TPZ radius. No excavation or root severance permitted.
+• Level 5 AQF Arborist report required before any works near retained trees.
+• TPZ fencing (solid, not shade cloth) erected before any site works begin.
 
-   Example output for "main bathroom + ensuite + powder room":
-   ## MAIN BATHROOM ##
-   Construct and fully waterproof in accordance with AS 3740-2010 (Type 4 membrane to all wet surfaces); specify 600×600mm rectified porcelain tiles with R10 slip resistance per AS 4586, semi-frameless shower enclosure, wall-hung vanity with undermount basin, and chrome tapware. All waterproofing to be inspected prior to tiling.
+AS 2890.1-2004 — OFF-STREET PARKING
+─────────────────────────────────────
+• Single garage minimum: 3000mm wide × 5400mm long (3200mm preferred).
+• Double garage minimum: 5400mm wide × 5400mm long (5800mm preferred).
+• Triple garage: 8000mm+ wide × 6000mm long.
+• Ceiling clearance: 2100mm minimum to structure.
+• Driveway gradient: maximum 1:4 (25%).
 
-   ## ENSUITE ##
-   AS 3740-2010 compliant waterproofing to all wet zones; frameless shower with ceiling-mounted rainfall head, double undermount basin vanity, freestanding bath where space permits. All plumbing per AS/NZS 3500.
+AS 1170 — STRUCTURAL DESIGN ACTIONS
+────────────────────────────────────
+• AS 1170.1: Dead loads + imposed loads (floor 1.5 kPa residential; balcony balustrades 0.75 kN/m horizontal).
+• AS 1170.2: Wind actions — wind region determines structural detailing (cyclonic regions C/D require specific tie-down).
+• AS 1170.4: Earthquake actions — required for all new structures.
+`;
 
-   ## POWDER ROOM ##
-   Wall-hung basin, concealed-cistern WC suite, half-height wall tiling; mechanical exhaust ventilation per NCC Volume Two; AS 1428.1 fixture clearances where accessibility is required.
+// ─── System prompt ────────────────────────────────────────────────────────────
 
-3. ZONE-SPECIFIC COMPLIANCE — each zone must reference its own applicable standards:
-   - All wet areas (bathrooms, ensuites, laundries, wet rooms): AS 3740-2010 waterproofing, AS/NZS 3500 plumbing, NCC Part F1/FP1.3
-   - Shower enclosures: AS 1288 glazing, AS 4586 slip resistance
-   - Accessible wet areas: AS 1428.1 clearances, AS 1428.2 fixtures
-   - Kitchens and sculleries: AS/NZS 3500 plumbing, AS 60335 appliance safety, NCC Section J ventilation
-   - Garages/carports: NCC Part 3.6 fire separation from habitable areas, AS 2890 parking dimensions
-   - Outdoor/alfresco zones: NCC external weatherproofing, AS 1170 structural loading for pergolas/decks
+const SYSTEM_PROMPT = `You are a senior architectural scope writer for ScopeLock, a B2B residential construction platform used by licensed Australian building contractors.
 
-4. SINGLE-ZONE FIELDS — if a field clearly describes only one space (e.g. "large kitchen with island bench"), do NOT apply the ## ZONE ## format. Write a single elevated paragraph as normal.
+YOUR INPUT IS A RAW CLIENT CHAT TRANSCRIPT. The client has described their renovation or construction goals in their own everyday words through a conversational intake session. This text has NOT been pre-processed, summarised, or modified by AI — it is exactly what the client typed.
 
-Output ONLY a valid JSON object — no markdown, no prose outside the JSON, no backtick fences. The JSON must have exactly these fields:
+YOUR TASK: Transform the raw client transcript into a polished, technically rigorous professional project brief that a licensed builder would present to their client. You are the translation engine between what a homeowner says and what a builder needs to build it.
+
+═══════════════════════════════════════════════════════
+GROUNDING RULE — MANDATORY
+═══════════════════════════════════════════════════════
+Every scope statement you write must be grounded in and cross-referenced against the Australian Compliance Reference Library provided below. You must:
+1. Reference at least one applicable Australian Standard (AS) or NCC clause in every substantive scope paragraph.
+2. Never fabricate or cite non-existent standards. Only cite standards listed in the COMPLIANCE REFERENCE LIBRARY.
+3. For wet areas (showers, bathrooms, ensuites, laundries): always cite AS 3740-2010 and AS 4586-2013.
+4. For all plumbing works: always cite AS/NZS 3500.
+5. For new or altered structures: always reference NCC 2022 Vol.2 Part H1.
+6. For energy performance: reference NCC 2022 Vol.2 Part H6 and NatHERS.
+7. For new dwellings: reference NCC 2022 Vol.2 Part H7 Livable Housing.
+
+${COMPLIANCE_REFERENCE}
+
+═══════════════════════════════════════════════════════
+HANDLING RAW CLIENT LANGUAGE
+═══════════════════════════════════════════════════════
+Clients speak in plain English. Your job is to elevate their words into precise construction scope:
+- "nice kitchen" → premium joinery, stone benchtop specification, integrated appliance suite, NCC-compliant ventilation
+- "big windows" → high-performance thermally broken glazing system, U-value ≤ 2.0, AS 1288 compliant safety glass
+- "reno the bathroom" → full AS 3740-2010 waterproofing, AS 4586 slip-rated tiles, AS/NZS 3500 plumbing, NCC H4 ventilation
+- "open plan" → structural wall removal (engineer certification per NCC H1), spatial integration, cross-ventilation
+- Never echo raw input back. Always elevate with specific materials, standards, and construction outcomes.
+
+═══════════════════════════════════════════════════════
+MULTI-ZONE DETECTION — CRITICAL RULE
+═══════════════════════════════════════════════════════
+When the client mentions multiple distinct spaces in any single answer, you MUST separate them into labelled sub-sections using this exact format:
+
+## ZONE NAME ##
+[Full professional scope for this zone — 2–4 sentences minimum, with applicable standard citations]
+
+Signals of multiple zones: "+", "&", "and", "/", commas between room names, repeated room types, or any input naming 2+ architecturally distinct rooms.
+
+Example: "main bathroom and ensuite and powder room" →
+## MAIN BATHROOM ##
+[scope with AS 3740, AS 4586, AS/NZS 3500 citations]
+
+## ENSUITE ##
+[scope with AS 3740, AS 4586, AS/NZS 3500 citations]
+
+## POWDER ROOM ##
+[scope with AS/NZS 3500, NCC H4 ventilation]
+
+The JSON field label (e.g. "masterBedroomScope") is where to PUT the output — it does NOT constrain what the client described. A client who writes bathroom notes in any field still gets a properly separated multi-zone output.
+
+═══════════════════════════════════════════════════════
+FIELD MAPPING — HOW TO POPULATE THE OUTPUT JSON
+═══════════════════════════════════════════════════════
+• projectNarrative: Extract client name (if mentioned), site address (if mentioned), budget range (if mentioned), and the primary project goal from Q1. If not explicitly stated, write "The client" as subject and infer motivation from context.
+• motivationStatement: Begin with "The client seeks..." — one formal sentence covering the primary renovation driver extracted from the transcript.
+• designPhilosophy: Infer the aesthetic direction from style keywords in the transcript (e.g. "modern", "Hamptons", "coastal", "industrial", "Scandi"). If no clear style cue, derive from functional intent.
+• lifestyleScopeItems: Array of professional scope sentences for lifestyle/functional goals mentioned anywhere in the transcript (open plan, indoor-outdoor, natural light, smart home, etc.). Extract from all three Q answers. If the array would be empty, derive 2–3 items from the overall project intent.
+• kitchenScope: All kitchen-related content from Q2 and anywhere in Q1/Q3. Ground in AS/NZS 3500, NCC H4 ventilation, and construction standards. Return empty string ONLY if no kitchen content anywhere.
+• masterBedroomScope: All bedroom, ensuite, bathroom, wet area content. APPLY MULTI-ZONE FORMAT if multiple wet areas are described. Cite AS 3740-2010 and AS 4586-2013 for all wet areas. Return empty string ONLY if no bedroom/wet area content anywhere.
+• livingZoneScope: All living, dining, open-plan, indoor-outdoor, media room content. Return empty string ONLY if no living zone content.
+• additionalScope: All additional notes from Q3, plus any remaining scope items (outdoor areas, garage, study, laundry, sustainability, landscaping, pool, accessibility) not captured above. Cite applicable standards. Return empty string ONLY if no additional content.
+
+═══════════════════════════════════════════════════════
+LANGUAGE STYLE
+═══════════════════════════════════════════════════════
+Third-person, active construction verbs: Design, Construct, Specify, Integrate, Commission, Implement, Establish, Incorporate, Provide, Achieve. Formal, precise, technically authoritative. Write for a licensed builder audience — not marketing language. Sentences should be 20–40 words. Paragraphs 3–5 sentences.
+
+═══════════════════════════════════════════════════════
+OUTPUT FORMAT — STRICT
+═══════════════════════════════════════════════════════
+Output ONLY a valid JSON object. No markdown fences, no prose outside the JSON, no commentary. The JSON must contain exactly these fields:
 
 {
-  "projectNarrative": "2–3 sentences summarising the project: client name, site address (if provided), budget envelope, and primary driver. Reference the client by name if available. If the client name is missing, write 'The client' as the subject.",
-  "motivationStatement": "One formal sentence beginning with 'The client seeks...' covering all selected motivations using precise construction industry language. If no motivations are selected, infer a plausible primary motivation from the overall brief.",
-  "designPhilosophy": "One paragraph describing the design philosophy derived from the selected architectural styles. If multiple styles are selected, weave them together coherently. If no style is selected but style cues are present in the notes, infer an appropriate philosophy.",
-  "lifestyleScopeItems": ["One professional scope sentence per lifestyle goal. Each should describe a specific design or construction outcome. If the lifestyle goals array is empty but goals are implied by the notes, include inferred items."],
-  "kitchenScope": "Professional scope description for the kitchen, expanding on the raw notes with specific finishes, fixtures, and design outcomes. For minimalist input, apply industry-standard kitchen scope inclusions. Return empty string only if there is absolutely no kitchen content anywhere in the brief.",
-  "masterBedroomScope": "Professional scope description for the master bedroom suite and associated wet areas. IMPORTANT: if the raw notes name multiple distinct spaces (e.g. 'Main bathroom + Ensuite + Powder room', 'ensuite and main bath', 'kids bathroom + master ensuite'), apply the ## ZONE NAME ## multi-zone format — one delimited sub-section per space, each with its own AS 3740-2010 waterproofing and AS/NZS 3500 plumbing compliance language. Only write a single paragraph if the input genuinely describes one space. Return empty string only if there is no bedroom or wet area content anywhere in the brief.",
-  "livingZoneScope": "Professional scope description for the living zones. Return empty string only if there is no living zone content anywhere in the brief.",
-  "additionalScope": "Professional scope description for any additional requirements. Return empty string only if there is no additional content anywhere in the brief."
+  "projectNarrative": "string",
+  "motivationStatement": "string",
+  "designPhilosophy": "string",
+  "lifestyleScopeItems": ["string", "..."],
+  "kitchenScope": "string",
+  "masterBedroomScope": "string",
+  "livingZoneScope": "string",
+  "additionalScope": "string"
+}`;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ChatTranscript {
+  q1_spaces: string;
+  roomFlags: Record<string, boolean>;
+  q2_followups: Record<string, string>;
+  q3_additional: string;
+  completedAt: string | null;
 }
 
-Language style: formal, precise, third-person, active construction verbs (Design, Construct, Specify, Integrate, Commission, Implement, Establish). Reference Australian Standards (AS) and NCC where directly relevant. Write for a licensed builder audience — authoritative and technically credible, not marketing language.`;
+const ROOM_LABELS: Record<string, string> = {
+  kitchen: 'Kitchen',
+  bathroom: 'Bathroom(s)',
+  masterBedroom: 'Master Bedroom Suite',
+  livingZone: 'Living & Dining',
+  laundry: 'Laundry',
+  study: 'Study / Home Office',
+  outdoor: 'Outdoor & Alfresco',
+  garage: 'Garage & Parking',
+};
+
+const ROOM_ORDER = ['kitchen', 'bathroom', 'masterBedroom', 'livingZone', 'laundry', 'study', 'outdoor', 'garage'];
+
+// ─── User message builder ─────────────────────────────────────────────────────
+// Formats the raw ChatTranscript into a clearly labelled prompt for the AI.
+// Text is truncated per-field to prevent token overruns, but order and content
+// are preserved verbatim — no summarisation or modification.
+
+const FIELD_CHAR_LIMIT = 1200;
+const Q3_CHAR_LIMIT = 1800;
+
+function truncate(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  return text.slice(0, limit) + ' [truncated to fit token budget]';
+}
+
+function buildUserMessage(transcript: ChatTranscript): string {
+  const lines: string[] = [
+    'CLIENT CHAT TRANSCRIPT',
+    '======================',
+    'The following text was entered verbatim by the client during their intake session.',
+    'Do not treat this as pre-processed data — expand, elevate, and ground every statement in the compliance reference.',
+    '',
+    '─── Q1: Spaces & Goals ───────────────────────────────────',
+    transcript.q1_spaces
+      ? truncate(transcript.q1_spaces, FIELD_CHAR_LIMIT)
+      : '(No answer provided)',
+    '',
+  ];
+
+  const q2Entries = ROOM_ORDER
+    .filter((k) => transcript.q2_followups[k]?.trim())
+    .map((k) => ({ label: ROOM_LABELS[k] ?? k, text: transcript.q2_followups[k] }));
+
+  if (q2Entries.length > 0) {
+    lines.push('─── Q2: Room Details ─────────────────────────────────────');
+    for (const { label, text } of q2Entries) {
+      lines.push(`[${label}]`);
+      lines.push(truncate(text, FIELD_CHAR_LIMIT));
+      lines.push('');
+    }
+  }
+
+  if (transcript.q3_additional?.trim()) {
+    lines.push('─── Q3: Additional Notes ─────────────────────────────────');
+    lines.push(truncate(transcript.q3_additional, Q3_CHAR_LIMIT));
+    lines.push('');
+  }
+
+  const detectedRooms = Object.entries(transcript.roomFlags ?? {})
+    .filter(([, v]) => v)
+    .map(([k]) => ROOM_LABELS[k] ?? k)
+    .join(', ');
+
+  if (detectedRooms) {
+    lines.push('─── Detected spaces (client-side keyword parse) ──────────');
+    lines.push(detectedRooms);
+    lines.push('');
+  }
+
+  lines.push('Generate the professional project brief JSON for the above transcript.');
+  return lines.join('\n');
+}
+
+// ─── Handler ──────────────────────────────────────────────────────────────────
 
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
@@ -85,15 +272,25 @@ export default async function handler(request: Request): Promise<Response> {
     });
   }
 
-  let data: unknown;
+  let transcript: ChatTranscript;
   try {
-    data = await request.json();
+    const body = await request.json();
+    // Validate minimum shape — must have at least q1_spaces
+    if (typeof body !== 'object' || body === null || typeof body.q1_spaces !== 'string') {
+      return new Response(JSON.stringify({ error: 'Invalid transcript payload — expected ChatTranscript' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    transcript = body as ChatTranscript;
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
   }
+
+  const userMessage = buildUserMessage(transcript);
 
   try {
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -108,7 +305,7 @@ export default async function handler(request: Request): Promise<Response> {
         max_tokens: 4096,
         stream: true,
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: JSON.stringify(data, null, 2) }],
+        messages: [{ role: 'user', content: userMessage }],
       }),
     });
 
@@ -120,9 +317,8 @@ export default async function handler(request: Request): Promise<Response> {
       );
     }
 
-    // Extract raw text from Anthropic's SSE stream and forward to client.
-    // First byte arrives in <1s, keeping edge proxy connections alive for the
-    // full generation regardless of how long the AI takes.
+    // Extract text from Anthropic's SSE stream and forward to client.
+    // Streaming keeps the edge proxy alive for the full generation duration.
     const readable = new ReadableStream({
       async start(controller) {
         const reader = anthropicRes.body!.getReader();

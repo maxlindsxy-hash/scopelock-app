@@ -7,52 +7,42 @@ import {
   Lock,
   Eye,
   EyeOff,
-  ChevronLeft,
-  ChevronRight,
   Sparkles,
   X,
   Settings,
   History,
   FilePlus2,
   AlertTriangle,
+  LayoutDashboard,
+  MessageSquare,
 } from 'lucide-react';
 
-import type { ProjectData, ContractorProfile, Session } from './types';
-import { initialProjectData, initialContractorProfile } from './types';
+import type {
+  ProjectData,
+  ContractorProfile,
+  Session,
+  ChatTranscript,
+} from './types';
+import {
+  initialProjectData,
+  initialContractorProfile,
+  initialChatTranscript,
+} from './types';
 import { refineProjectBrief } from './utils/aiRefiner';
 import type { RefinedBriefData } from './utils/aiRefiner';
-import { StageProgress } from './components/StageProgress';
-import { Stage1 } from './components/stages/Stage1';
-import { Stage2 } from './components/stages/Stage2';
-import { Stage3 } from './components/stages/Stage3';
-import { Stage4 } from './components/stages/Stage4';
+import { ChatWizard } from './components/ChatWizard';
+import { ContractorDashboard } from './components/ContractorDashboard';
 import { ProjectBrief } from './components/ProjectBrief';
 import { ContractorSetup } from './components/ContractorSetup';
 import { HistoryPanel } from './components/HistoryPanel';
 import { BriefPDF } from './components/BriefPDF';
 
-// ─── Stage metadata ───────────────────────────────────────────────────────────
-
-const STAGE_TITLES = [
-  'Project Identity & Overview',
-  'Design & Aesthetic',
-  'Room Requirements',
-  'Final Notes',
-];
-
-const STAGE_SUBTITLES = [
-  "Client info, site details, and what's driving this project",
-  'Visual direction, architectural style, and lifestyle priorities',
-  'Functional intent and design requirements for key spaces',
-  'Any additional requirements, constraints, or custom notes',
-];
-
 // ─── Storage helpers ──────────────────────────────────────────────────────────
 
 const CONTRACTOR_KEY = 'scopelock_contractor_v1';
-const SESSIONS_KEY = 'scopelock_sessions_v1';
-const ACTIVE_KEY = 'scopelock_active_v1';
-const MAX_SESSIONS = 40;
+const SESSIONS_KEY   = 'scopelock_sessions_v1';
+const ACTIVE_KEY     = 'scopelock_active_v2';  // bumped version to avoid stale schema
+const MAX_SESSIONS   = 40;
 
 function loadContractor(): ContractorProfile {
   try {
@@ -80,9 +70,12 @@ function saveSessions(sessions: Session[]) {
   } catch { /* ignore */ }
 }
 
+type AppView = 'client' | 'contractor';
+
 interface ActiveDraft {
   data: ProjectData;
-  stage: number;
+  transcript: ChatTranscript;
+  view: AppView;
   briefGenerated: boolean;
   refinedData: RefinedBriefData | null;
   refNumber: string;
@@ -133,35 +126,12 @@ function makeDate(): string {
   });
 }
 
-function hasAnyData(d: ProjectData): boolean {
+function hasAnyTranscript(t: ChatTranscript): boolean {
   return !!(
-    d.clientName || d.siteAddress || d.budgetRange ||
-    d.primaryMotivation.length || d.architecturalStyles.length ||
-    d.lifestyleGoals.length || d.kitchenNotes ||
-    d.masterBedroomNotes || d.livingZoneNotes || d.additionalNotes
+    t.q1_spaces ||
+    t.q3_additional ||
+    Object.values(t.q2_followups).some((v) => v?.trim())
   );
-}
-
-// ─── Token-budget guardrails ──────────────────────────────────────────────────
-
-const FIELD_LIMITS: Partial<Record<keyof ProjectData, number>> = {
-  kitchenNotes: 800,
-  masterBedroomNotes: 800,
-  livingZoneNotes: 800,
-  additionalNotes: 1500,
-};
-
-function truncateFields(d: ProjectData): { payload: ProjectData; truncated: boolean } {
-  let truncated = false;
-  const payload = { ...d };
-  for (const [field, limit] of Object.entries(FIELD_LIMITS) as [keyof ProjectData, number][]) {
-    if (typeof payload[field] === 'string' && (payload[field] as string).length > limit) {
-      (payload as Record<keyof ProjectData, unknown>)[field] =
-        (payload[field] as string).slice(0, limit);
-      truncated = true;
-    }
-  }
-  return { payload, truncated };
 }
 
 // ─── Response validator ───────────────────────────────────────────────────────
@@ -181,24 +151,32 @@ function isValidRefinedData(obj: unknown): obj is RefinedBriefData {
   );
 }
 
-// ─── App ─────────────────────────────────────────────────────────────────────
+// ─── App ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  // ── Form state ──────────────────────────────────────────────────────────────
-  const [data, setData] = useState<ProjectData>(() => loadActive()?.data ?? initialProjectData);
-  const [stage, setStage] = useState<number>(() => loadActive()?.stage ?? 1);
-  const [direction, setDirection] = useState(1);
-  const [briefGenerated, setBriefGenerated] = useState<boolean>(() => loadActive()?.briefGenerated ?? false);
+  const saved = loadActive();
+
+  // ── Core state ───────────────────────────────────────────────────────────────
+  const [transcript, setTranscript] = useState<ChatTranscript>(
+    () => saved?.transcript ?? initialChatTranscript
+  );
+  const [data, setData] = useState<ProjectData>(() => saved?.data ?? initialProjectData);
+  const [view, setView] = useState<AppView>(() => saved?.view ?? 'client');
+  const [briefGenerated, setBriefGenerated] = useState<boolean>(() => saved?.briefGenerated ?? false);
+  const [refinedData, setRefinedData] = useState<RefinedBriefData | null>(() => saved?.refinedData ?? null);
   const [signatureDataUrl, setSignatureDataUrl] = useState('');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
-  const [refinedData, setRefinedData] = useState<RefinedBriefData | null>(() => loadActive()?.refinedData ?? null);
 
   // ── Session identity ─────────────────────────────────────────────────────────
-  const [currentSessionId, setCurrentSessionId] = useState<string>(() => loadActive()?.currentSessionId ?? generateId());
-  const [sessionCreatedAt, setSessionCreatedAt] = useState<string>(() => loadActive()?.sessionCreatedAt ?? new Date().toISOString());
-  const [refNumber, setRefNumber] = useState<string>(() => loadActive()?.refNumber ?? makeRef());
-  const [generatedDate, setGeneratedDate] = useState<string>(() => loadActive()?.generatedDate ?? makeDate());
+  const [currentSessionId, setCurrentSessionId] = useState<string>(
+    () => saved?.currentSessionId ?? generateId()
+  );
+  const [sessionCreatedAt, setSessionCreatedAt] = useState<string>(
+    () => saved?.sessionCreatedAt ?? new Date().toISOString()
+  );
+  const [refNumber, setRefNumber] = useState<string>(() => saved?.refNumber ?? makeRef());
+  const [generatedDate, setGeneratedDate] = useState<string>(() => saved?.generatedDate ?? makeDate());
 
   // ── Persistent state ─────────────────────────────────────────────────────────
   const [contractor, setContractor] = useState<ContractorProfile>(loadContractor);
@@ -210,12 +188,15 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [showNewProjectConfirm, setShowNewProjectConfirm] = useState(false);
 
-  // ── Persist active draft to localStorage on every relevant state change ────
+  // ── Persist active draft ─────────────────────────────────────────────────────
   useEffect(() => {
-    saveActive({ data, stage, briefGenerated, refinedData, refNumber, generatedDate, currentSessionId, sessionCreatedAt });
-  }, [data, stage, briefGenerated, refinedData, refNumber, generatedDate, currentSessionId, sessionCreatedAt]);
+    saveActive({
+      data, transcript, view, briefGenerated, refinedData,
+      refNumber, generatedDate, currentSessionId, sessionCreatedAt,
+    });
+  }, [data, transcript, view, briefGenerated, refinedData, refNumber, generatedDate, currentSessionId, sessionCreatedAt]);
 
-  // ── Persist signature changes back to the in-history session ──────────────
+  // ── Persist signature to history ─────────────────────────────────────────────
   useEffect(() => {
     if (!briefGenerated) return;
     setSessions((prev) => {
@@ -231,14 +212,6 @@ export default function App() {
   }, [signatureDataUrl]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
-  const updateData = (updates: Partial<ProjectData>) =>
-    setData((prev) => ({ ...prev, ...updates }));
-
-  const goToStage = (newStage: number) => {
-    if (newStage < 1 || newStage > 4) return;
-    setDirection(newStage > stage ? 1 : -1);
-    setStage(newStage);
-  };
 
   const persistSession = (session: Session) => {
     setSessions((prev) => {
@@ -250,24 +223,21 @@ export default function App() {
 
   const resetSession = () => {
     clearActive();
+    setTranscript(initialChatTranscript);
     setData(initialProjectData);
-    setStage(1);
-    setDirection(1);
+    setView('client');
     setBriefGenerated(false);
     setSignatureDataUrl('');
     setShowMobilePreview(false);
     setRefinedData(null);
     setIsRefining(false);
-    const newId = generateId();
-    const newRef = makeRef();
-    const newDate = makeDate();
-    setCurrentSessionId(newId);
+    setCurrentSessionId(generateId());
     setSessionCreatedAt(new Date().toISOString());
-    setRefNumber(newRef);
-    setGeneratedDate(newDate);
+    setRefNumber(makeRef());
+    setGeneratedDate(makeDate());
   };
 
-  // ── Generate ─────────────────────────────────────────────────────────────────
+  // ── Generate brief (contractor-triggered) ────────────────────────────────────
   const handleGenerate = async () => {
     setIsRefining(true);
     setShowMobilePreview(true);
@@ -275,13 +245,6 @@ export default function App() {
     try {
       let refined: RefinedBriefData;
       let usedFallback = false;
-
-      const { payload, truncated } = truncateFields(data);
-      if (truncated) {
-        toast.warning('Notes trimmed to fit AI token budget — full text is still saved locally.', {
-          duration: 6000,
-        });
-      }
 
       try {
         const controller = new AbortController();
@@ -291,15 +254,13 @@ export default function App() {
           response = await fetch('/api/refine', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(transcript),
             signal: controller.signal,
           });
         } finally {
           clearTimeout(timeoutId);
         }
         if (!response!.ok) throw new Error(`API ${response!.status}`);
-        // Read streamed text response — accumulate chunks then parse JSON.
-        // Streaming keeps the edge proxy alive for the full generation duration.
         const reader = response!.body?.getReader();
         if (!reader) throw new Error('No response body');
         const dec = new TextDecoder();
@@ -310,9 +271,7 @@ export default function App() {
           text += dec.decode(value, { stream: true });
         }
         text += dec.decode();
-        // Strip markdown code fences if the model wraps its JSON output
         const jsonText = text.replace(/^```(?:json)?\s*/m, '').replace(/```\s*$/m, '').trim();
-        // Fall back to regex extraction if there's still surrounding prose
         const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
         const raw: unknown = JSON.parse(jsonMatch ? jsonMatch[0] : jsonText);
         if (!isValidRefinedData(raw)) throw new Error('Unexpected response shape from AI');
@@ -327,17 +286,17 @@ export default function App() {
 
       if (usedFallback) {
         toast.info('Brief generated using local engine', {
-          description: 'AI was unavailable — your brief was built from our offline pattern library.',
+          description: 'AI was unavailable — built from offline pattern library.',
           duration: 6000,
         });
       }
 
-      // Save to history
       const session: Session = {
         id: currentSessionId,
         createdAt: sessionCreatedAt,
         updatedAt: new Date().toISOString(),
         data,
+        transcript,
         refNumber,
         generatedDate,
         signatureDataUrl,
@@ -346,7 +305,7 @@ export default function App() {
       persistSession(session);
 
       toast.success('Project Brief Generated!', {
-        description: `${data.clientName ? `${data.clientName}'s brief` : 'Brief'} is ready — add signature and download PDF.`,
+        description: `Brief is ready — add signature and download PDF.`,
         duration: 5000,
       });
 
@@ -385,7 +344,7 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `ScopeLock-Brief-${(data.clientName || 'Project').replace(/\s+/g, '-')}-${refNumber}.pdf`;
+      a.download = `ScopeLock-Brief-${refNumber}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -401,8 +360,7 @@ export default function App() {
 
   // ── New project ───────────────────────────────────────────────────────────────
   const handleNewProject = () => {
-    // If the form is blank and no brief was generated, just reset with no prompt
-    if (!hasAnyData(data) && !briefGenerated) {
+    if (!hasAnyTranscript(transcript) && !briefGenerated) {
       resetSession();
       return;
     }
@@ -416,6 +374,7 @@ export default function App() {
         createdAt: sessionCreatedAt,
         updatedAt: new Date().toISOString(),
         data,
+        transcript,
         refNumber,
         generatedDate,
         signatureDataUrl,
@@ -427,7 +386,7 @@ export default function App() {
     resetSession();
   };
 
-  // ── History ───────────────────────────────────────────────────────────────────
+  // ── Contractor profile & history ──────────────────────────────────────────────
   const handleContractorSave = (profile: ContractorProfile) => {
     setContractor(profile);
     saveContractor(profile);
@@ -435,13 +394,13 @@ export default function App() {
   };
 
   const handleLoadSession = (session: Session) => {
-    // Quietly save current session first if it has content
-    if (hasAnyData(data) || briefGenerated) {
+    if (hasAnyTranscript(transcript) || briefGenerated) {
       const current: Session = {
         id: currentSessionId,
         createdAt: sessionCreatedAt,
         updatedAt: new Date().toISOString(),
         data,
+        transcript,
         refNumber,
         generatedDate,
         signatureDataUrl,
@@ -449,7 +408,7 @@ export default function App() {
       };
       persistSession(current);
     }
-    // Load
+    setTranscript(session.transcript ?? initialChatTranscript);
     setData(session.data);
     setBriefGenerated(session.status === 'generated');
     setSignatureDataUrl(session.signatureDataUrl);
@@ -459,11 +418,10 @@ export default function App() {
     setGeneratedDate(session.generatedDate);
     setRefinedData(session.status === 'generated' ? refineProjectBrief(session.data) : null);
     setIsRefining(false);
-    setStage(1);
-    setDirection(1);
+    setView(session.status === 'generated' ? 'contractor' : 'client');
     setShowHistory(false);
     setShowMobilePreview(false);
-    toast.info(`Loaded: ${session.data.clientName || 'Untitled Project'}`);
+    toast.info(`Loaded session ${session.refNumber}`);
   };
 
   const handleDeleteSession = (id: string) => {
@@ -474,15 +432,7 @@ export default function App() {
     });
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────────
-
-  const stageComponents = [
-    <Stage1 key="s1" data={data} onChange={updateData} direction={direction} />,
-    <Stage2 key="s2" data={data} onChange={updateData} direction={direction} />,
-    <Stage3 key="s3" data={data} onChange={updateData} direction={direction} />,
-    <Stage4 key="s4" data={data} onChange={updateData} direction={direction} />,
-  ];
-
+  // ── Brief props (shared) ──────────────────────────────────────────────────────
   const briefProps = {
     data, contractor, generated: briefGenerated,
     refNumber, generatedDate, signatureDataUrl,
@@ -493,11 +443,13 @@ export default function App() {
     refinedData,
   };
 
+  // ─── Render ──────────────────────────────────────────────────────────────────
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Toaster position="top-center" richColors expand={false} />
 
-      {/* ── Contractor Settings ──────────────────────────────────────── */}
+      {/* Contractor settings overlay */}
       {showSettings && (
         <ContractorSetup
           profile={contractor}
@@ -506,7 +458,7 @@ export default function App() {
         />
       )}
 
-      {/* ── History Panel ────────────────────────────────────────────── */}
+      {/* History panel */}
       {showHistory && (
         <HistoryPanel
           sessions={sessions}
@@ -517,7 +469,7 @@ export default function App() {
         />
       )}
 
-      {/* ── New Project Confirm Dialog ───────────────────────────────── */}
+      {/* New project confirm dialog */}
       <AnimatePresence>
         {showNewProjectConfirm && (
           <motion.div
@@ -545,23 +497,15 @@ export default function App() {
                   <h3 className="font-bold text-slate-900">Start a new project?</h3>
                   {briefGenerated ? (
                     <p className="text-sm text-slate-500 mt-1 leading-relaxed">
-                      Your generated brief for{' '}
-                      <span className="font-medium text-slate-700">
-                        {data.clientName || 'this project'}
-                      </span>{' '}
-                      is already saved in History.
+                      Your generated brief is already saved in History.
                     </p>
                   ) : (
                     <p className="text-sm text-slate-500 mt-1 leading-relaxed">
-                      {data.clientName
-                        ? <>Save <span className="font-medium text-slate-700">{data.clientName}'s</span> details as a draft before starting fresh?</>
-                        : 'Save your current progress as a draft before starting fresh?'
-                      }
+                      Save your current progress as a draft before starting fresh?
                     </p>
                   )}
                 </div>
               </div>
-
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setShowNewProjectConfirm(false)}
@@ -595,9 +539,9 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* ── Mobile Brief Modal ───────────────────────────────────────── */}
+      {/* Mobile brief modal (contractor view only) */}
       <AnimatePresence>
-        {showMobilePreview && (
+        {showMobilePreview && view === 'contractor' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -639,12 +583,12 @@ export default function App() {
       </AnimatePresence>
 
       {/* ── Main layout ──────────────────────────────────────────────── */}
-      <div className="lg:flex lg:h-screen lg:overflow-hidden">
+      <div className={view === 'contractor' ? 'lg:flex lg:h-screen lg:overflow-hidden' : 'flex flex-col min-h-screen'}>
 
-        {/* Left panel — Wizard */}
-        <div className="lg:w-[60%] lg:h-screen lg:overflow-y-auto">
+        {/* Left panel */}
+        <div className={view === 'contractor' ? 'lg:w-[60%] lg:h-screen lg:overflow-y-auto' : 'flex-1 flex flex-col'}>
 
-          {/* App header */}
+          {/* Header */}
           <div className="bg-white border-b border-slate-100 px-4 py-3.5 sticky top-0 z-10 no-print">
             <div className="max-w-2xl mx-auto flex items-center gap-2">
 
@@ -656,12 +600,29 @@ export default function App() {
                 <span className="font-bold text-slate-900 text-base tracking-tight">ScopeLock</span>
                 <span className="text-slate-300 hidden md:inline">·</span>
                 <span className="text-xs text-slate-400 hidden md:inline font-medium truncate">
-                  Project Brief Generator
+                  {view === 'contractor' ? 'Contractor Dashboard' : 'Client Intake'}
                 </span>
               </div>
 
               {/* Header actions */}
               <div className="flex items-center gap-1.5 shrink-0">
+
+                {/* View toggle */}
+                <button
+                  onClick={() => setView(view === 'client' ? 'contractor' : 'client')}
+                  className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl border-2 text-xs font-semibold
+                             transition-all touch-manipulation
+                             ${view === 'contractor'
+                               ? 'border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+                               : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                             }`}
+                  title={view === 'contractor' ? 'Back to client chat' : 'Contractor dashboard'}
+                >
+                  {view === 'contractor'
+                    ? <><MessageSquare size={14} /><span className="hidden sm:inline">Client Chat</span></>
+                    : <><LayoutDashboard size={14} /><span className="hidden sm:inline">Dashboard</span></>
+                  }
+                </button>
 
                 {/* History */}
                 <button
@@ -681,7 +642,7 @@ export default function App() {
                   )}
                 </button>
 
-                {/* New Project */}
+                {/* New project */}
                 <button
                   onClick={handleNewProject}
                   title="New project"
@@ -693,7 +654,7 @@ export default function App() {
                   <span className="hidden sm:inline">New</span>
                 </button>
 
-                {/* Settings */}
+                {/* Contractor settings */}
                 <button
                   onClick={() => setShowSettings(true)}
                   title="Contractor profile"
@@ -711,125 +672,88 @@ export default function App() {
             </div>
           </div>
 
-          {/* Wizard body */}
-          <div className="max-w-2xl mx-auto px-5 py-7 pb-28 lg:pb-12">
-
-            <div className="mb-8 no-print">
-              <StageProgress currentStage={stage} onStageClick={goToStage} />
+          {/* Panel body */}
+          {view === 'client' ? (
+            <div className="flex-1 flex flex-col" style={{ height: 'calc(100vh - 57px)' }}>
+              <ChatWizard
+                transcript={transcript}
+                onUpdate={setTranscript}
+                onComplete={(completed) => {
+                  setTranscript(completed);
+                  toast.success('Client intake complete!', {
+                    description: 'Switch to Contractor Dashboard to review and generate the brief.',
+                    duration: 6000,
+                    action: {
+                      label: 'Go to Dashboard',
+                      onClick: () => setView('contractor'),
+                    },
+                  });
+                }}
+              />
             </div>
+          ) : (
+            <ContractorDashboard
+              transcript={transcript}
+              refNumber={refNumber}
+              sessionCreatedAt={sessionCreatedAt}
+              isGenerating={isRefining}
+              onGenerate={handleGenerate}
+            />
+          )}
+        </div>
 
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={stage}
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="mb-6 no-print"
-              >
-                <span className="text-xs font-bold uppercase tracking-widest text-indigo-500">
-                  Stage {stage} of 4
-                </span>
-                <h2 className="text-xl font-bold text-slate-900 mt-1">
-                  {STAGE_TITLES[stage - 1]}
-                </h2>
-                <p className="text-sm text-slate-500 mt-1 leading-relaxed">
-                  {STAGE_SUBTITLES[stage - 1]}
-                </p>
-              </motion.div>
-            </AnimatePresence>
-
-            <div className="overflow-hidden">
-              <AnimatePresence mode="wait">
-                {stageComponents[stage - 1]}
-              </AnimatePresence>
-            </div>
-
-            {/* Nav buttons */}
-            <div className="mt-8 flex items-center justify-between no-print">
-              <button
-                type="button"
-                onClick={() => goToStage(stage - 1)}
-                disabled={stage === 1}
-                className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm
-                            transition-all duration-150 touch-manipulation min-h-[48px]
-                            ${stage === 1
-                              ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                              : 'bg-white border-2 border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50 active:bg-slate-100'
-                            }`}
-              >
-                <ChevronLeft size={18} />
-                Back
-              </button>
-
-              {stage < 4 ? (
-                <button
-                  type="button"
-                  onClick={() => goToStage(stage + 1)}
-                  className="flex items-center gap-2 px-7 py-3 rounded-xl font-semibold text-sm
-                             bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800
-                             transition-all duration-150 touch-manipulation min-h-[48px]
-                             shadow-md shadow-indigo-100"
-                >
-                  Next
-                  <ChevronRight size={18} />
-                </button>
-              ) : (
-                <motion.button
-                  type="button"
-                  onClick={handleGenerate}
-                  disabled={isRefining}
-                  animate={isRefining ? {} : {
-                    boxShadow: [
-                      '0 8px 20px rgba(79,70,229,0.25)',
-                      '0 8px 32px rgba(109,40,217,0.50)',
-                      '0 8px 20px rgba(79,70,229,0.25)',
-                    ],
-                  }}
-                  transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
-                  whileTap={isRefining ? {} : { scale: 0.96 }}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm
-                             transition-colors touch-manipulation min-h-[48px]
-                             ${isRefining
-                               ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                               : 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-500 hover:to-violet-500'
-                             }`}
-                >
-                  <Sparkles size={17} className={isRefining ? 'animate-spin' : ''} />
-                  {isRefining ? 'Analysing…' : 'Generate Project Brief'}
-                </motion.button>
-              )}
-            </div>
+        {/* Right panel — Brief preview (contractor view, desktop only) */}
+        {view === 'contractor' && (
+          <div className="hidden lg:flex lg:flex-col lg:w-[40%] lg:h-screen border-l border-slate-200">
+            <ProjectBrief {...briefProps} />
           </div>
-        </div>
-
-        {/* Right panel — Brief Preview (desktop only) */}
-        <div className="hidden lg:flex lg:flex-col lg:w-[40%] lg:h-screen border-l border-slate-200">
-          <ProjectBrief {...briefProps} />
-        </div>
+        )}
       </div>
 
-      {/* ── Mobile FAB ── */}
-      <motion.div
-        initial={{ scale: 0, opacity: 0, y: 16 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        transition={{ type: 'spring', damping: 16, stiffness: 280, delay: 0.4 }}
-        className="lg:hidden fixed bottom-6 right-5 z-30 no-print"
-      >
-        <button
-          type="button"
-          onClick={() => setShowMobilePreview((v) => !v)}
-          className="flex items-center gap-2 pl-4 pr-5 py-3 rounded-2xl font-semibold text-sm
-                     bg-indigo-600 text-white shadow-xl shadow-indigo-300/50
-                     active:scale-95 transition-all duration-150"
+      {/* Mobile FAB — brief preview (contractor view only) */}
+      {view === 'contractor' && (
+        <motion.div
+          initial={{ scale: 0, opacity: 0, y: 16 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          transition={{ type: 'spring', damping: 16, stiffness: 280, delay: 0.4 }}
+          className="lg:hidden fixed bottom-6 right-5 z-30 no-print"
         >
-          {showMobilePreview ? <EyeOff size={16} /> : <Eye size={16} />}
-          Brief Preview
-          {briefGenerated && (
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
-          )}
-        </button>
-      </motion.div>
+          <button
+            type="button"
+            onClick={() => setShowMobilePreview((v) => !v)}
+            className="flex items-center gap-2 pl-4 pr-5 py-3 rounded-2xl font-semibold text-sm
+                       bg-indigo-600 text-white shadow-xl shadow-indigo-300/50
+                       active:scale-95 transition-all duration-150"
+          >
+            {showMobilePreview ? <EyeOff size={16} /> : <Eye size={16} />}
+            Brief Preview
+            {briefGenerated && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+            )}
+          </button>
+        </motion.div>
+      )}
+
+      {/* Floating "Generate" snackbar button for contractor view on mobile */}
+      {view === 'contractor' && !briefGenerated && transcript.completedAt && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="lg:hidden fixed bottom-6 left-5 z-30 no-print"
+        >
+          <button
+            onClick={handleGenerate}
+            disabled={isRefining}
+            className="flex items-center gap-2 px-4 py-3 rounded-2xl font-semibold text-sm
+                       bg-gradient-to-r from-indigo-600 to-violet-600 text-white
+                       shadow-xl shadow-indigo-300/50 active:scale-95 transition-all
+                       disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Sparkles size={15} className={isRefining ? 'animate-spin' : ''} />
+            {isRefining ? 'Generating…' : 'Generate Brief'}
+          </button>
+        </motion.div>
+      )}
     </div>
   );
 }
