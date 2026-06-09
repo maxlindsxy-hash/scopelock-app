@@ -166,6 +166,36 @@ The raw transcript card now surfaces all intake fields in clearly separated sect
 
 ---
 
+## Version 1.1 — Data Integrity, Luxury Design & PDF Compaction ✅
+
+**Shipped.** Three interconnected production fixes applied across the rendering and styling layer.
+
+### Data Disconnect Fix
+- `/api/refine` system prompt now explicitly injects `clientContact` (Name, Address, Email, Phone), `budget`, and `timeline` as labelled fields — AI brief can no longer hallucinate or omit client identity details
+- Zero-hallucination room fence enforced end-to-end: `ProjectBrief.tsx` `RoomBlock` returns `null` when both refined and raw notes are empty; `BriefPDF.tsx` room array filtered before `.map()` — unrequested rooms cannot appear in brief or PDF regardless of AI output
+
+### PDF Compaction & Signature Block
+- All empty-state placeholder strings eliminated (`"Not entered"`, `"No notes entered"`, `"None selected"`) — sections now collapse to zero layout rows when empty
+- `FieldRow` and `TagRow` in `BriefPDF.tsx` return `null` on empty input
+- Signature block rebuilt as a logical dual-column layout: **Contractor Authorisation** (left) + **Client Acknowledgement** (right); retired the old 3-column Printed Name / Date layout
+- `@media print` overrides hardened: `#brief-document` background forced to white, all text forced to `#0f172a`, indigo accents preserved via attribute selectors
+
+### Luxury Visual Design
+- Warm architectural studio palette deployed across all screen components:
+  - `#fcfbf9` warm off-white app background (replaces `slate-50` / `#f8fafc`)
+  - `#1c1b1a` deep charcoal primary text (replaces `slate-900`)
+  - `#5a5755` secondary text, `#9b9895` muted/label text
+  - `rgba(28,27,26,0.08)` hairline borders (replaces `slate-200`)
+- Section labels converted to `tracking-[0.2em]` small-caps throughout `ContractorDashboard`, `ProjectBrief`, `App`
+- `BriefPDF` `C` palette updated to warm equivalents; all cool slate values retired
+- `ContractorDashboard` transcript cards, field containers, and generate gate fully on warm tokens
+
+### Build verification
+- `tsc --noEmit` — zero TypeScript errors
+- `vite build` — 2270 modules, 1.19s, 623KB gzip. No new warnings.
+
+---
+
 ## Phase 6 — Launch Hardening 🔜
 
 **Final pre-launch tasks.** Vercel environment, domain, observability, and access control.
@@ -263,5 +293,4 @@ Run this manually before each production deploy:
 | `regulations.json` is embedded in the API as a string constant; not read at runtime — update both files if compliance data changes | Low |
 | No unit or integration tests | Medium |
 | `eslint-disable` on signature `useEffect` dependency array | Low |
-| `/api/refine` payload does not yet include `clientContact`, `budget`, or `timeline` — AI brief infers from free-text only | Medium — Phase 6 follow-up |
 | `/api/refine` has no authentication or rate limiting | High — Phase 6.3 |

@@ -127,10 +127,10 @@ export function ContractorDashboard({ transcript, refNumber, isGenerating, onGen
           {q1_spaces && (
             <div className="px-5 py-5 space-y-2">
               <SectionHeader label="Scope & Goals" />
-              <p className="text-xs text-slate-400 italic mt-1 mb-2">
+              <p className="text-xs text-[#9b9895] italic mt-1 mb-2">
                 "Which spaces are you looking to renovate or build, and what's the main goal?"
               </p>
-              <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+              <p className="text-sm text-[#1c1b1a] leading-relaxed whitespace-pre-wrap bg-[#f7f6f4] rounded-xl px-4 py-3 border border-[rgba(28,27,26,0.08)]">
                 {q1_spaces}
               </p>
             </div>
@@ -167,7 +167,7 @@ export function ContractorDashboard({ transcript, refNumber, isGenerating, onGen
           {hasQ2 && (
             <div className="px-5 py-5 space-y-4">
               <SectionHeader label="Room Details" />
-              <p className="text-xs text-slate-400 italic mt-1">
+              <p className="text-xs text-[#9b9895] italic mt-1">
                 "Describe your vision for each space in your own words."
               </p>
               <div className="space-y-4 mt-2">
@@ -186,10 +186,10 @@ export function ContractorDashboard({ transcript, refNumber, isGenerating, onGen
           {q3_additional && (
             <div className="px-5 py-5 space-y-2">
               <SectionHeader label="Finishes & Additional Notes" />
-              <p className="text-xs text-slate-400 italic mt-1 mb-2">
+              <p className="text-xs text-[#9b9895] italic mt-1 mb-2">
                 "Any final details — material finishes, site constraints, or unique requirements?"
               </p>
-              <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+              <p className="text-sm text-[#1c1b1a] leading-relaxed whitespace-pre-wrap bg-[#f7f6f4] rounded-xl px-4 py-3 border border-[rgba(28,27,26,0.08)]">
                 {q3_additional}
               </p>
             </div>
