@@ -238,6 +238,15 @@ export default function App() {
 
   // ── Generate brief (contractor-triggered) ────────────────────────────────────
   const handleGenerate = async () => {
+    // Bridge transcript → data so ProjectBrief renders correct metadata immediately,
+    // before the AI response arrives. Only overwrites fields that are blank in data.
+    setData((prev) => ({
+      ...prev,
+      clientName:  transcript.clientContact?.name        || prev.clientName,
+      siteAddress: transcript.clientContact?.siteAddress || prev.siteAddress,
+      budgetRange: transcript.budget                     || prev.budgetRange,
+    }));
+
     setIsRefining(true);
     setShowMobilePreview(true);
 

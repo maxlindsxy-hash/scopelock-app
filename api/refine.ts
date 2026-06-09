@@ -3,8 +3,6 @@ export const config = { runtime: 'edge' };
 declare const process: { env: Record<string, string | undefined> };
 
 // ─── Compliance reference ─────────────────────────────────────────────────────
-// Key requirements from regulations.json, formatted for AI prompt embedding.
-// This is the grounding layer: the AI must anchor every scope statement here.
 
 const COMPLIANCE_REFERENCE = `
 AUSTRALIAN COMPLIANCE REFERENCE LIBRARY
@@ -87,83 +85,109 @@ AS 1170 — STRUCTURAL DESIGN ACTIONS
 
 const SYSTEM_PROMPT = `You are a senior architectural scope writer for ScopeLock, a B2B residential construction platform used by licensed Australian building contractors.
 
-YOUR INPUT IS A RAW CLIENT CHAT TRANSCRIPT. The client has described their renovation or construction goals in their own everyday words through a conversational intake session. This text has NOT been pre-processed, summarised, or modified by AI — it is exactly what the client typed.
+YOUR INPUT IS A RAW CLIENT CHAT TRANSCRIPT. The client has described their renovation or construction goals in their own everyday words. This text has NOT been pre-processed or modified by AI.
 
-YOUR TASK: Transform the raw client transcript into a polished, technically rigorous professional project brief that a licensed builder would present to their client. You are the translation engine between what a homeowner says and what a builder needs to build it.
+YOUR TASK: Transform the raw client transcript into a polished, technically rigorous professional project brief that a licensed builder would present to their client.
+
+═══════════════════════════════════════════════════════
+STRICT SCOPE FENCE — ZERO-HALLUCINATION RULE (READ FIRST)
+═══════════════════════════════════════════════════════
+The user message contains a REQUESTED ZONES list. This list represents ONLY the spaces the client actually described.
+
+YOU MUST OBEY THESE HARD RULES:
+1. kitchenScope → return "" (empty string) if "Kitchen" is NOT in REQUESTED ZONES.
+2. masterBedroomScope → return "" if neither "Bathroom(s)" nor "Master Bedroom Suite" is in REQUESTED ZONES.
+3. livingZoneScope → return "" if "Living & Dining" is NOT in REQUESTED ZONES.
+4. additionalScope → include ONLY items explicitly stated in the transcript. Do NOT add features or rooms the client never mentioned.
+5. lifestyleScopeItems → return [] (empty array) if no lifestyle goals are explicitly stated. Do NOT derive or invent items.
+6. designPhilosophy → return "" if no architectural style keywords appear in the transcript. Do NOT derive a style from functional intent.
+7. motivationStatement → if no explicit motivation is stated, use exactly: "The client seeks to undertake a residential renovation programme as defined by the agreed project scope."
+
+PROHIBITED BEHAVIOURS — ANY VIOLATION MAKES THE BRIEF UNUSABLE:
+✗ Do NOT generate kitchen scope if the client never mentioned a kitchen.
+✗ Do NOT generate bedroom scope if the client never mentioned a bedroom, ensuite, or robe.
+✗ Do NOT generate living zone scope if the client never mentioned living, dining, or open plan.
+✗ Do NOT invent lifestyle goals, design preferences, or features absent from the raw transcript.
+✗ Do NOT write "The client" as the subject if a client name is provided in CLIENT INFORMATION.
+✗ Do NOT say "not entered", "not specified", or "not provided" in any output field.
+
+═══════════════════════════════════════════════════════
+CLIENT INFORMATION RULE
+═══════════════════════════════════════════════════════
+The user message begins with a CLIENT INFORMATION block containing validated data from the intake form.
+• Use the client's FULL NAME exactly as provided in all narrative fields. Never substitute "The client" if a name is available.
+• Use the SITE ADDRESS exactly as provided in projectNarrative. Never write a placeholder.
+• Use the BUDGET exactly as provided. Never write "not specified" if a budget was entered.
+• Use the TIMELINE exactly as provided.
 
 ═══════════════════════════════════════════════════════
 GROUNDING RULE — MANDATORY
 ═══════════════════════════════════════════════════════
-Every scope statement you write must be grounded in and cross-referenced against the Australian Compliance Reference Library provided below. You must:
-1. Reference at least one applicable Australian Standard (AS) or NCC clause in every substantive scope paragraph.
-2. Never fabricate or cite non-existent standards. Only cite standards listed in the COMPLIANCE REFERENCE LIBRARY.
-3. For wet areas (showers, bathrooms, ensuites, laundries): always cite AS 3740-2010 and AS 4586-2013.
-4. For all plumbing works: always cite AS/NZS 3500.
-5. For new or altered structures: always reference NCC 2022 Vol.2 Part H1.
-6. For energy performance: reference NCC 2022 Vol.2 Part H6 and NatHERS.
-7. For new dwellings: reference NCC 2022 Vol.2 Part H7 Livable Housing.
+Every scope statement you write must be grounded in the Australian Compliance Reference Library.
+1. Reference at least one applicable AS or NCC clause in every substantive scope paragraph.
+2. Never fabricate standards. Only cite standards listed in the COMPLIANCE REFERENCE LIBRARY.
+3. Wet areas (showers, bathrooms, ensuites, laundries): always cite AS 3740-2010 and AS 4586-2013.
+4. All plumbing works: always cite AS/NZS 3500.
+5. New or altered structures: always reference NCC 2022 Vol.2 Part H1.
+6. Energy performance: reference NCC 2022 Vol.2 Part H6 and NatHERS.
+7. New dwellings: reference NCC 2022 Vol.2 Part H7 Livable Housing.
 
 ${COMPLIANCE_REFERENCE}
 
 ═══════════════════════════════════════════════════════
 HANDLING RAW CLIENT LANGUAGE
 ═══════════════════════════════════════════════════════
-Clients speak in plain English. Your job is to elevate their words into precise construction scope:
-- "nice kitchen" → premium joinery, stone benchtop specification, integrated appliance suite, NCC-compliant ventilation
-- "big windows" → high-performance thermally broken glazing system, U-value ≤ 2.0, AS 1288 compliant safety glass
-- "reno the bathroom" → full AS 3740-2010 waterproofing, AS 4586 slip-rated tiles, AS/NZS 3500 plumbing, NCC H4 ventilation
+Clients speak in plain English. Your job is to elevate their words into precise construction scope — but ONLY for the zones they mentioned:
+- "nice bathroom" → full AS 3740-2010 waterproofing, AS 4586 slip-rated tiles, AS/NZS 3500 plumbing, NCC H4 ventilation
+- "reno the kitchen" → premium joinery, stone benchtop, integrated appliances, NCC-compliant rangehood ventilation
 - "open plan" → structural wall removal (engineer certification per NCC H1), spatial integration, cross-ventilation
 - Never echo raw input back. Always elevate with specific materials, standards, and construction outcomes.
 
 ═══════════════════════════════════════════════════════
 MULTI-ZONE DETECTION — CRITICAL RULE
 ═══════════════════════════════════════════════════════
-When the client mentions multiple distinct spaces in any single answer, you MUST separate them into labelled sub-sections using this exact format:
+When the client mentions multiple distinct spaces in a single answer, separate them using:
 
 ## ZONE NAME ##
-[Full professional scope for this zone — 2–4 sentences minimum, with applicable standard citations]
+[Full professional scope — 2–4 sentences, with applicable standard citations]
 
-Signals of multiple zones: "+", "&", "and", "/", commas between room names, repeated room types, or any input naming 2+ architecturally distinct rooms.
+Signals: "+", "&", "and", "/", commas between room names, or any input naming 2+ distinct rooms.
 
-Example: "main bathroom and ensuite and powder room" →
+Example: "main bathroom and ensuite" →
 ## MAIN BATHROOM ##
 [scope with AS 3740, AS 4586, AS/NZS 3500 citations]
-
 ## ENSUITE ##
 [scope with AS 3740, AS 4586, AS/NZS 3500 citations]
 
-## POWDER ROOM ##
-[scope with AS/NZS 3500, NCC H4 ventilation]
-
-The JSON field label (e.g. "masterBedroomScope") is where to PUT the output — it does NOT constrain what the client described. A client who writes bathroom notes in any field still gets a properly separated multi-zone output.
+The JSON field label describes where to PUT the output — it does NOT constrain what the client described.
 
 ═══════════════════════════════════════════════════════
-FIELD MAPPING — HOW TO POPULATE THE OUTPUT JSON
+FIELD MAPPING
 ═══════════════════════════════════════════════════════
-• projectNarrative: Extract client name (if mentioned), site address (if mentioned), budget range (if mentioned), and the primary project goal from Q1. If not explicitly stated, write "The client" as subject and infer motivation from context.
-• motivationStatement: Begin with "The client seeks..." — one formal sentence covering the primary renovation driver extracted from the transcript.
-• designPhilosophy: Infer the aesthetic direction from style keywords in the transcript (e.g. "modern", "Hamptons", "coastal", "industrial", "Scandi"). If no clear style cue, derive from functional intent.
-• lifestyleScopeItems: Array of professional scope sentences for lifestyle/functional goals mentioned anywhere in the transcript (open plan, indoor-outdoor, natural light, smart home, etc.). Extract from all three Q answers. If the array would be empty, derive 2–3 items from the overall project intent.
-• kitchenScope: All kitchen-related content from Q2 and anywhere in Q1/Q3. Ground in AS/NZS 3500, NCC H4 ventilation, and construction standards. Return empty string ONLY if no kitchen content anywhere.
-• masterBedroomScope: All bedroom, ensuite, bathroom, wet area content. APPLY MULTI-ZONE FORMAT if multiple wet areas are described. Cite AS 3740-2010 and AS 4586-2013 for all wet areas. Return empty string ONLY if no bedroom/wet area content anywhere.
-• livingZoneScope: All living, dining, open-plan, indoor-outdoor, media room content. Return empty string ONLY if no living zone content.
-• additionalScope: All additional notes from Q3, plus any remaining scope items (outdoor areas, garage, study, laundry, sustainability, landscaping, pool, accessibility) not captured above. Cite applicable standards. Return empty string ONLY if no additional content.
+• projectNarrative: Use the client's FULL NAME from CLIENT INFORMATION as the subject. Include site address and budget from CLIENT INFORMATION exactly as provided. Describe the primary project goal from the transcript. 2–3 sentences.
+• motivationStatement: "The client seeks..." — one formal sentence. Base ONLY on explicit motivation cues. Use the generic fallback if none stated.
+• designPhilosophy: Extract ONLY from explicit style keywords in the transcript. Return "" if none present.
+• lifestyleScopeItems: Array of scope sentences for lifestyle goals EXPLICITLY MENTIONED. Return [] if none stated.
+• kitchenScope: ONLY if Kitchen is in REQUESTED ZONES. Expand on the raw notes. Return "" otherwise.
+• masterBedroomScope: ONLY if Master Bedroom Suite or Bathroom(s) is in REQUESTED ZONES. Apply multi-zone format if multiple wet areas described. Return "" otherwise.
+• livingZoneScope: ONLY if Living & Dining is in REQUESTED ZONES. Return "" otherwise.
+• additionalScope: ONLY for items explicitly stated in the transcript (Q3 notes, outdoor areas, garage, etc.). Return "" if nothing additional stated.
 
 ═══════════════════════════════════════════════════════
 LANGUAGE STYLE
 ═══════════════════════════════════════════════════════
-Third-person, active construction verbs: Design, Construct, Specify, Integrate, Commission, Implement, Establish, Incorporate, Provide, Achieve. Formal, precise, technically authoritative. Write for a licensed builder audience — not marketing language. Sentences should be 20–40 words. Paragraphs 3–5 sentences.
+Third-person, active construction verbs: Design, Construct, Specify, Integrate, Commission, Implement, Establish, Incorporate. Formal, precise, technically authoritative. Write for a licensed builder audience. Sentences 20–40 words.
 
 ═══════════════════════════════════════════════════════
 OUTPUT FORMAT — STRICT
 ═══════════════════════════════════════════════════════
-Output ONLY a valid JSON object. No markdown fences, no prose outside the JSON, no commentary. The JSON must contain exactly these fields:
+Output ONLY a valid JSON object. No markdown fences, no prose outside the JSON.
 
 {
   "projectNarrative": "string",
   "motivationStatement": "string",
   "designPhilosophy": "string",
-  "lifestyleScopeItems": ["string", "..."],
+  "lifestyleScopeItems": ["string"],
   "kitchenScope": "string",
   "masterBedroomScope": "string",
   "livingZoneScope": "string",
@@ -172,34 +196,41 @@ Output ONLY a valid JSON object. No markdown fences, no prose outside the JSON, 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface ClientContact {
+  name: string;
+  email: string;
+  phone: string;
+  siteAddress: string;
+}
+
 interface ChatTranscript {
+  clientContact: ClientContact;
   q1_spaces: string;
   roomFlags: Record<string, boolean>;
+  budget: string;
+  timeline: string;
   q2_followups: Record<string, string>;
   q3_additional: string;
   completedAt: string | null;
 }
 
 const ROOM_LABELS: Record<string, string> = {
-  kitchen: 'Kitchen',
-  bathroom: 'Bathroom(s)',
-  masterBedroom: 'Master Bedroom Suite',
-  livingZone: 'Living & Dining',
-  laundry: 'Laundry',
-  study: 'Study / Home Office',
-  outdoor: 'Outdoor & Alfresco',
-  garage: 'Garage & Parking',
+  kitchen:      'Kitchen',
+  bathroom:     'Bathroom(s)',
+  masterBedroom:'Master Bedroom Suite',
+  livingZone:   'Living & Dining',
+  laundry:      'Laundry',
+  study:        'Study / Home Office',
+  outdoor:      'Outdoor & Alfresco',
+  garage:       'Garage & Parking',
 };
 
 const ROOM_ORDER = ['kitchen', 'bathroom', 'masterBedroom', 'livingZone', 'laundry', 'study', 'outdoor', 'garage'];
 
 // ─── User message builder ─────────────────────────────────────────────────────
-// Formats the raw ChatTranscript into a clearly labelled prompt for the AI.
-// Text is truncated per-field to prevent token overruns, but order and content
-// are preserved verbatim — no summarisation or modification.
 
 const FIELD_CHAR_LIMIT = 1200;
-const Q3_CHAR_LIMIT = 1800;
+const Q3_CHAR_LIMIT    = 1800;
 
 function truncate(text: string, limit: number): string {
   if (text.length <= limit) return text;
@@ -207,25 +238,51 @@ function truncate(text: string, limit: number): string {
 }
 
 function buildUserMessage(transcript: ChatTranscript): string {
-  const lines: string[] = [
-    'CLIENT CHAT TRANSCRIPT',
-    '======================',
-    'The following text was entered verbatim by the client during their intake session.',
-    'Do not treat this as pre-processed data — expand, elevate, and ground every statement in the compliance reference.',
-    '',
-    '─── Q1: Spaces & Goals ───────────────────────────────────',
-    transcript.q1_spaces
-      ? truncate(transcript.q1_spaces, FIELD_CHAR_LIMIT)
-      : '(No answer provided)',
-    '',
-  ];
+  const lines: string[] = [];
+
+  // ── CLIENT INFORMATION (injected from intake form — authoritative) ──────────
+  const c = transcript.clientContact ?? {};
+  lines.push('CLIENT INFORMATION (from intake form — use these values verbatim)');
+  lines.push('══════════════════════════════════════════════════════════════════');
+  lines.push(`Full Name:    ${c.name     || '(not provided)'}`);
+  lines.push(`Email:        ${c.email    || '(not provided)'}`);
+  lines.push(`Mobile:       ${c.phone    || '(not provided)'}`);
+  lines.push(`Site Address: ${c.siteAddress || '(not provided)'}`);
+  lines.push(`Budget:       ${transcript.budget    || '(not provided)'}`);
+  lines.push(`Timeline:     ${transcript.timeline  || '(not provided)'}`);
+  lines.push('');
+
+  // ── REQUESTED ZONES (hard constraint on scope output) ───────────────────────
+  const requestedZones = Object.entries(transcript.roomFlags ?? {})
+    .filter(([, v]) => v)
+    .map(([k]) => ROOM_LABELS[k] ?? k);
+
+  lines.push('REQUESTED ZONES (ONLY generate scope for these — all others must be "")');
+  lines.push('══════════════════════════════════════════════════════════════════');
+  if (requestedZones.length > 0) {
+    lines.push(requestedZones.join(', '));
+  } else {
+    lines.push('(no specific zones detected — use Q1 text to determine scope)');
+  }
+  lines.push('');
+
+  // ── RAW CLIENT TRANSCRIPT ────────────────────────────────────────────────────
+  lines.push('RAW CLIENT CHAT TRANSCRIPT (verbatim — do not treat as pre-processed)');
+  lines.push('══════════════════════════════════════════════════════════════════');
+  lines.push('');
+
+  lines.push('── Spaces & Goals ──');
+  lines.push(transcript.q1_spaces
+    ? truncate(transcript.q1_spaces, FIELD_CHAR_LIMIT)
+    : '(No answer provided)');
+  lines.push('');
 
   const q2Entries = ROOM_ORDER
     .filter((k) => transcript.q2_followups[k]?.trim())
     .map((k) => ({ label: ROOM_LABELS[k] ?? k, text: transcript.q2_followups[k] }));
 
   if (q2Entries.length > 0) {
-    lines.push('─── Q2: Room Details ─────────────────────────────────────');
+    lines.push('── Room Details ──');
     for (const { label, text } of q2Entries) {
       lines.push(`[${label}]`);
       lines.push(truncate(text, FIELD_CHAR_LIMIT));
@@ -234,23 +291,13 @@ function buildUserMessage(transcript: ChatTranscript): string {
   }
 
   if (transcript.q3_additional?.trim()) {
-    lines.push('─── Q3: Additional Notes ─────────────────────────────────');
+    lines.push('── Additional Notes ──');
     lines.push(truncate(transcript.q3_additional, Q3_CHAR_LIMIT));
     lines.push('');
   }
 
-  const detectedRooms = Object.entries(transcript.roomFlags ?? {})
-    .filter(([, v]) => v)
-    .map(([k]) => ROOM_LABELS[k] ?? k)
-    .join(', ');
-
-  if (detectedRooms) {
-    lines.push('─── Detected spaces (client-side keyword parse) ──────────');
-    lines.push(detectedRooms);
-    lines.push('');
-  }
-
   lines.push('Generate the professional project brief JSON for the above transcript.');
+  lines.push('Remember: output empty string "" for any scope field whose zone is NOT in REQUESTED ZONES.');
   return lines.join('\n');
 }
 
@@ -275,7 +322,6 @@ export default async function handler(request: Request): Promise<Response> {
   let transcript: ChatTranscript;
   try {
     const body = await request.json();
-    // Validate minimum shape — must have at least q1_spaces
     if (typeof body !== 'object' || body === null || typeof body.q1_spaces !== 'string') {
       return new Response(JSON.stringify({ error: 'Invalid transcript payload — expected ChatTranscript' }), {
         status: 400,
@@ -317,8 +363,6 @@ export default async function handler(request: Request): Promise<Response> {
       );
     }
 
-    // Extract text from Anthropic's SSE stream and forward to client.
-    // Streaming keeps the edge proxy alive for the full generation duration.
     const readable = new ReadableStream({
       async start(controller) {
         const reader = anthropicRes.body!.getReader();
