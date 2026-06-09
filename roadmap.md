@@ -166,14 +166,36 @@ The main JS bundle is ~1.9MB (620KB gzip), driven primarily by `@react-pdf/rende
 ### 5.6 — Smoke Test Checklist (Pre-Deploy Gate)
 Run this manually before each production deploy:
 
-- [ ] Generate a brief with AI (online) — confirm AI-enhanced copy appears
-- [ ] Generate a brief offline (DevTools → Network → Offline) — confirm fallback toast fires, local brief renders
-- [ ] Type 800+ chars in a room field — confirm counter turns red and input is capped
-- [ ] Refresh mid-fill — confirm form state and stage are restored from localStorage
-- [ ] Download PDF — confirm file opens correctly and contractor header is present
+**Client Chat Flow**
+- [ ] Q1: Type a description mentioning "kitchen" and "bathroom" — confirm Continue activates, room flags parse correctly
+- [ ] Q2: Confirm labeled textareas appear for each detected room only (no phantom rooms); "Fill in what's relevant" hint visible
+- [ ] Q3: Confirm Q2 answers appear as a right-aligned user bubble in the chat history before Q3 prompt appears
+- [ ] Submit Q3 — confirm "All done!" completion screen renders and "Go to Dashboard" toast fires
+- [ ] Refresh mid-chat (after Q1) — confirm step 2 is restored, Q1 answer visible in chat history
+- [ ] Type Q1 with NO recognisable room keywords — confirm Q2 still renders with a generic "Living & Dining" fallback textarea
+
+**Contractor Dashboard**
+- [ ] Switch to Dashboard before client submits — confirm generate button is disabled with "Awaiting client submission…" label
+- [ ] Switch to Dashboard after client submits — confirm `completedAt` timestamp is shown and button is active
+- [ ] Verify raw transcript card shows Q1, Q2 (per-room sub-sections), and Q3 verbatim — no AI paraphrasing
+- [ ] Verify detected spaces chips match the rooms flagged from Q1
+
+**Brief Generation**
+- [ ] Click "[ Generate Professional Brief ]" with AI online — confirm "AI PROCESSING" indicator in right panel, spinner on button, brief populates within ~30s
+- [ ] Confirm generated brief cites at least one AS/NCC standard in every room scope section
+- [ ] Confirm multi-zone input (e.g. "bathroom and ensuite") produces `## ZONE NAME ##` separated sub-sections in the brief panel
+- [ ] Generate offline (DevTools → Network → Offline) — confirm fallback toast fires; note fallback brief will be minimal (known tech debt)
+- [ ] History: confirm completed session is saved and loadable; loading a generated session opens contractor view
+
+**Exports & Print**
+- [ ] Download PDF — confirm file opens, contractor header present, all brief sections included
 - [ ] Export MD — confirm `## ZONE NAME ##` delimiters appear as `####` headings
-- [ ] Print (Ctrl+P) — confirm wizard panel is hidden, brief fills the page, no sections cut across page break
-- [ ] Mobile (375px) — confirm FAB is visible, brief modal opens, signature field is usable
+- [ ] Print (Ctrl+P) — confirm client chat panel is hidden, brief fills the page, no sections cut across page break
+
+**Mobile (375px viewport)**
+- [ ] Client chat: confirm step indicator, chat bubbles, and textarea all render correctly; Continue/Submit buttons reachable
+- [ ] Contractor view: confirm "Brief Preview" FAB is visible, bottom-sheet modal opens with full brief
+- [ ] Signature field: confirm canvas is usable with touch input
 
 ---
 
