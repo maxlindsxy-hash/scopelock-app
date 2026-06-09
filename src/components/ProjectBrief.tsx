@@ -556,6 +556,7 @@ export function ProjectBrief({
               )}
 
               {/* Client & Site */}
+              {(data.clientName || data.siteAddress) && (
               <DocSection title="Client &amp; Project Details">
                 <div className="space-y-3">
                   {data.clientName && (
@@ -578,6 +579,7 @@ export function ProjectBrief({
                   )}
                 </div>
               </DocSection>
+              )}
 
               {/* Project Overview */}
               <DocSection title="Project Overview">

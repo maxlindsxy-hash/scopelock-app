@@ -61,6 +61,10 @@ export default async function handler(req: Request): Promise<Response> {
   if (!transcript || typeof transcript !== 'object') {
     return new Response(JSON.stringify({ error: 'transcript is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
+  const t = transcript as Record<string, unknown>;
+  if (!t.q1_spaces || typeof t.q1_spaces !== 'string' || !String(t.q1_spaces).trim()) {
+    return new Response(JSON.stringify({ error: 'Transcript has no content' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
 
   const sessionId = generateSessionId();
   const submittedAt = new Date().toISOString();

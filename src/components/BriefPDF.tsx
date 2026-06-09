@@ -401,8 +401,10 @@ export function BriefPDF({
         </View>
 
         {/* ── 3. Design Vision ── */}
+        {(data.architecturalStyles.length > 0 || data.lifestyleGoals.length > 0 || refinedData?.designPhilosophy || (refinedData?.lifestyleScopeItems?.length ?? 0) > 0) ? (
         <View style={styles.section}>
           <Divider title="Design Vision" />
+          {(data.architecturalStyles.length > 0 || refinedData?.designPhilosophy) ? (
           <View style={{ marginBottom: 9 }}>
             <Text style={{ ...styles.fieldLabel, marginBottom: 5 }}>Architectural Style</Text>
             <TagRow items={data.architecturalStyles} />
@@ -410,6 +412,8 @@ export function BriefPDF({
               <Text style={styles.refinedText}>{refinedData.designPhilosophy}</Text>
             ) : null}
           </View>
+          ) : null}
+          {(data.lifestyleGoals.length > 0 || (refinedData?.lifestyleScopeItems?.length ?? 0) > 0) ? (
           <View>
             <Text style={{ ...styles.fieldLabel, marginBottom: 5 }}>Lifestyle Goals</Text>
             <TagRow items={data.lifestyleGoals} />
@@ -424,7 +428,9 @@ export function BriefPDF({
               </View>
             ) : null}
           </View>
+          ) : null}
         </View>
+        ) : null}
 
         {/* ── 4. Room Specifications ── */}
         <View style={styles.section}>
@@ -461,7 +467,7 @@ export function BriefPDF({
         ) : null}
 
         {/* ── 6. Dual Signature Block ── */}
-        <View style={styles.sigSection}>
+        <View style={styles.sigSection} wrap={false}>
           <Text style={styles.sigTitle}>Signatures &amp; Acknowledgement</Text>
           <Text style={styles.sigStatement}>
             I/We confirm that the information captured in this project brief accurately

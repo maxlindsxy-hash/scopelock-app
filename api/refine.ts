@@ -322,7 +322,7 @@ export default async function handler(request: Request): Promise<Response> {
   let transcript: ChatTranscript;
   try {
     const body = await request.json();
-    if (typeof body !== 'object' || body === null || typeof body.q1_spaces !== 'string') {
+    if (typeof body !== 'object' || body === null || typeof body.q1_spaces !== 'string' || !body.q1_spaces.trim()) {
       return new Response(JSON.stringify({ error: 'Invalid transcript payload — expected ChatTranscript' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
