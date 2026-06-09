@@ -4,7 +4,8 @@
   "framework": "vite",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "functions": {
-    "api/refine.ts":         { "maxDuration": 60 },
-    "api/submit-intake.ts":  { "maxDuration": 10 }
+    "api/refine.ts":              { "maxDuration": 60 },
+    "api/submit-intake.ts":       { "maxDuration": 10 },
+    "api/tenant-submissions.ts":  { "maxDuration": 10 }
   }
 }

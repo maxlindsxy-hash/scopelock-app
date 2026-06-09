@@ -13,6 +13,7 @@ import {
   FilePlus2,
   AlertTriangle,
   MessageSquare,
+  Inbox,
 } from 'lucide-react';
 
 import type {
@@ -33,6 +34,7 @@ import { ContractorDashboard } from './components/ContractorDashboard';
 import { ProjectBrief } from './components/ProjectBrief';
 import { ContractorSetup } from './components/ContractorSetup';
 import { HistoryPanel } from './components/HistoryPanel';
+import { SubmissionsInbox } from './components/SubmissionsInbox';
 import { BriefPDF } from './components/BriefPDF';
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
@@ -185,6 +187,7 @@ export default function App() {
   const [showMobilePreview, setShowMobilePreview] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showSubmissions, setShowSubmissions] = useState(false);
   const [showNewProjectConfirm, setShowNewProjectConfirm] = useState(false);
 
   // ── Persist active draft ─────────────────────────────────────────────────────
@@ -477,6 +480,25 @@ export default function App() {
         />
       )}
 
+      {/* Submissions inbox */}
+      {showSubmissions && (
+        <SubmissionsInbox
+          tenantSlug={contractor.tenantSlug}
+          onLoad={(incoming) => {
+            setTranscript(incoming);
+            setView('contractor');
+            setBriefGenerated(false);
+            setRefinedData(null);
+            setCurrentSessionId(generateId());
+            setSessionCreatedAt(new Date().toISOString());
+            setRefNumber(makeRef());
+            setGeneratedDate(makeDate());
+          }}
+          onClose={() => setShowSubmissions(false)}
+          onConfigureSlug={() => { setShowSubmissions(false); setShowSettings(true); }}
+        />
+      )}
+
       {/* New project confirm dialog */}
       <AnimatePresence>
         {showNewProjectConfirm && (
@@ -628,6 +650,18 @@ export default function App() {
                     <span className="hidden sm:inline">Client Chat</span>
                   </button>
                 )}
+
+                {/* Submissions inbox */}
+                <button
+                  onClick={() => setShowSubmissions(true)}
+                  title="Client intake submissions"
+                  className="relative flex items-center gap-1.5 px-2.5 py-2 rounded-xl
+                             border-2 border-[rgba(28,27,26,0.08)] text-[#5a5755] text-xs font-semibold
+                             hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+                >
+                  <Inbox size={14} />
+                  <span className="hidden sm:inline">Inbox</span>
+                </button>
 
                 {/* History */}
                 <button

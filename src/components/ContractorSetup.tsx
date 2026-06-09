@@ -11,6 +11,7 @@ import {
   Hash,
   ImagePlus,
   Trash2,
+  Link,
 } from 'lucide-react';
 import type { ContractorProfile } from '../types';
 
@@ -220,6 +221,19 @@ export function ContractorSetup({ profile, onChange, onClose }: Props) {
               onChange={(v) => update('abn', v)}
             />
           </div>
+
+          <div className="h-px bg-slate-100" />
+
+          <Field
+            icon={<Link size={13} />}
+            label="Intake Portal Slug"
+            placeholder="e.g. apex-builds"
+            value={profile.tenantSlug}
+            onChange={(v) => update('tenantSlug', v.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-'))}
+            hint={profile.tenantSlug
+              ? `Client intake URL: /…/${profile.tenantSlug}/intake`
+              : 'Used to receive client submissions from your public intake link'}
+          />
         </div>
 
         {/* Footer */}

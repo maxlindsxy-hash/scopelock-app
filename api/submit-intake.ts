@@ -6,7 +6,42 @@ function generateSessionId(): string {
   return `intake-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function kvAvailable(): boolean {
+  return !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+}
+
+async function kvSet(key: string, value: unknown): Promise<void> {
+  const url = `${process.env.KV_REST_API_URL}/set/${encodeURIComponent(key)}`;
+  await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(value),
+  });
+}
+
+async function kvLPush(key: string, value: string): Promise<void> {
+  const url = `${process.env.KV_REST_API_URL}/lpush/${encodeURIComponent(key)}`;
+  await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(value),
+  });
+}
+
 export default async function handler(req: Request): Promise<Response> {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type' },
+    });
+  }
+
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -15,62 +50,35 @@ export default async function handler(req: Request): Promise<Response> {
   try {
     body = await req.json();
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
-  if (!body || typeof body !== 'object') {
-    return new Response(JSON.stringify({ error: 'Missing body' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  const { tenantId, transcript } = body as Record<string, unknown>;
+  const { tenantId, transcript } = (body ?? {}) as Record<string, unknown>;
 
   if (!tenantId || typeof tenantId !== 'string') {
-    return new Response(JSON.stringify({ error: 'tenantId is required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(JSON.stringify({ error: 'tenantId is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
-
   if (!transcript || typeof transcript !== 'object') {
-    return new Response(JSON.stringify({ error: 'transcript is required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(JSON.stringify({ error: 'transcript is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
 
   const sessionId = generateSessionId();
   const submittedAt = new Date().toISOString();
+  const submission = { sessionId, tenantId, submittedAt, transcript };
 
-  // ── Persistence stub ──────────────────────────────────────────────────────────
-  // TODO: Replace with Vercel KV once provisioned:
-  //
-  //   import { kv } from '@vercel/kv';
-  //   await kv.set(
-  //     `intake:${tenantId}:${sessionId}`,
-  //     { tenantId, sessionId, submittedAt, transcript },
-  //     { ex: 60 * 60 * 24 * 90 }  // 90-day TTL
-  //   );
-  //   await kv.lpush(`intake:${tenantId}:index`, sessionId);
-  //
-  // For now, the submission is acknowledged and logged server-side only.
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  console.log(`[submit-intake] tenantId=${tenantId} sessionId=${sessionId} at=${submittedAt}`);
+  if (kvAvailable()) {
+    try {
+      await kvSet(`intake:${tenantId}:${sessionId}`, submission);
+      await kvLPush(`intake:${tenantId}:index`, sessionId);
+    } catch (err) {
+      console.error('[submit-intake] KV write failed:', err);
+    }
+  } else {
+    console.log(`[submit-intake] KV not provisioned — tenantId=${tenantId} sessionId=${sessionId} at=${submittedAt}`);
+  }
 
   return new Response(
     JSON.stringify({ success: true, sessionId, submittedAt }),
-    {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-    }
+    { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
   );
 }

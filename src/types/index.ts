@@ -134,6 +134,7 @@ export interface ContractorProfile {
   licenseNumber: string;
   abn: string;
   logoDataUrl: string;
+  tenantSlug: string;
 }
 
 export const initialContractorProfile: ContractorProfile = {
@@ -145,7 +146,17 @@ export const initialContractorProfile: ContractorProfile = {
   licenseNumber: '',
   abn: '',
   logoDataUrl: '',
+  tenantSlug: '',
 };
+
+// ─── Tenant Submissions ───────────────────────────────────────────────────────
+
+export interface TenantSubmission {
+  sessionId: string;
+  tenantId: string;
+  submittedAt: string;
+  transcript: ChatTranscript;
+}
 
 // ─── Session ─────────────────────────────────────────────────────────────────
 
