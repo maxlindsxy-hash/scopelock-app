@@ -6,7 +6,6 @@ import { ROOM_ORDER, ROOM_META } from './ChatWizard';
 interface Props {
   transcript: ChatTranscript | null;
   refNumber: string;
-  sessionCreatedAt: string;
   isGenerating: boolean;
   onGenerate: () => void;
 }
@@ -37,7 +36,7 @@ function TranscriptField({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ContractorDashboard({ transcript, refNumber, sessionCreatedAt, isGenerating, onGenerate }: Props) {
+export function ContractorDashboard({ transcript, refNumber, isGenerating, onGenerate }: Props) {
   if (!transcript?.q1_spaces) return <EmptyState />;
 
   const hasQ2 = Object.values(transcript.q2_followups).some((v) => v?.trim());

@@ -695,7 +695,6 @@ export default function App() {
             <ContractorDashboard
               transcript={transcript}
               refNumber={refNumber}
-              sessionCreatedAt={sessionCreatedAt}
               isGenerating={isRefining}
               onGenerate={handleGenerate}
             />
