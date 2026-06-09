@@ -12,7 +12,6 @@ import {
   History,
   FilePlus2,
   AlertTriangle,
-  LayoutDashboard,
   MessageSquare,
 } from 'lucide-react';
 
@@ -40,7 +39,7 @@ import { BriefPDF } from './components/BriefPDF';
 
 const CONTRACTOR_KEY = 'scopelock_contractor_v1';
 const SESSIONS_KEY   = 'scopelock_sessions_v1';
-const ACTIVE_KEY     = 'scopelock_active_v2';  // bumped version to avoid stale schema
+const ACTIVE_KEY     = 'scopelock_active_v3';  // bumped: ClientContact + budget + timeline fields
 const MAX_SESSIONS   = 40;
 
 function loadContractor(): ContractorProfile {
@@ -127,6 +126,7 @@ function makeDate(): string {
 
 function hasAnyTranscript(t: ChatTranscript): boolean {
   return !!(
+    t.clientContact?.name ||
     t.q1_spaces ||
     t.q3_additional ||
     Object.values(t.q2_followups).some((v) => v?.trim())
@@ -606,22 +606,19 @@ export default function App() {
               {/* Header actions */}
               <div className="flex items-center gap-1.5 shrink-0">
 
-                {/* View toggle */}
-                <button
-                  onClick={() => setView(view === 'client' ? 'contractor' : 'client')}
-                  className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl border-2 text-xs font-semibold
-                             transition-all touch-manipulation
-                             ${view === 'contractor'
-                               ? 'border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
-                               : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
-                             }`}
-                  title={view === 'contractor' ? 'Back to client chat' : 'Contractor dashboard'}
-                >
-                  {view === 'contractor'
-                    ? <><MessageSquare size={14} /><span className="hidden sm:inline">Client Chat</span></>
-                    : <><LayoutDashboard size={14} /><span className="hidden sm:inline">Dashboard</span></>
-                  }
-                </button>
+                {/* View toggle — only visible to contractor (never shown in client-facing view) */}
+                {view === 'contractor' && (
+                  <button
+                    onClick={() => setView('client')}
+                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border-2 text-xs font-semibold
+                               transition-all touch-manipulation border-indigo-200 bg-indigo-50
+                               text-indigo-600 hover:bg-indigo-100"
+                    title="Back to client chat"
+                  >
+                    <MessageSquare size={14} />
+                    <span className="hidden sm:inline">Client Chat</span>
+                  </button>
+                )}
 
                 {/* History */}
                 <button

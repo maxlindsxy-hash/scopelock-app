@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, CheckCircle2, Lock } from 'lucide-react';
-import type { ChatTranscript, RoomFlags, RoomKey } from '../types';
+import { Send, CheckCircle2, Lock, ArrowRight } from 'lucide-react';
+import type { ChatTranscript, RoomFlags, RoomKey, ClientContact } from '../types';
+import { initialClientContact } from '../types';
 
 // ─── Room metadata ────────────────────────────────────────────────────────────
 
@@ -13,35 +14,35 @@ export const ROOM_ORDER: RoomKey[] = [
 export const ROOM_META: Record<RoomKey, { label: string; placeholder: string }> = {
   kitchen: {
     label: 'Kitchen',
-    placeholder: "e.g. I'd love an island bench with stone benchtops, a butler's pantry, and fully integrated appliances. The kitchen should open to the living area...",
+    placeholder: "e.g. Island bench with waterfall stone benchtops, butler's pantry, fully integrated appliances, open to the living area...",
   },
   bathroom: {
     label: 'Bathroom(s)',
-    placeholder: 'e.g. A frameless shower and freestanding bath in the main bathroom, double vanity, floor-to-ceiling tiles, heated floors...',
+    placeholder: 'e.g. Frameless shower and freestanding bath in the main bathroom, double vanity, floor-to-ceiling tiles throughout...',
   },
   masterBedroom: {
     label: 'Master Bedroom Suite',
-    placeholder: 'e.g. A large walk-in robe, ensuite with double vanity and a freestanding bath, north-facing aspect, plenty of natural light...',
+    placeholder: 'e.g. Walk-in robe, ensuite with double vanity and freestanding bath, north-facing aspect, plenty of natural light...',
   },
   livingZone: {
     label: 'Living & Dining',
-    placeholder: 'e.g. Open-plan kitchen, dining, and living area with bi-fold doors to the outdoor entertaining space, high ceilings, a separate media room...',
+    placeholder: 'e.g. Open-plan kitchen, dining and living with bi-fold doors to the outdoor area, high ceilings, separate media room...',
   },
   laundry: {
     label: 'Laundry',
-    placeholder: 'e.g. Separate laundry room with plenty of bench space, overhead storage, external access to a clothesline area...',
+    placeholder: 'e.g. Separate laundry room with bench space, overhead storage, external access to a clothesline...',
   },
   study: {
     label: 'Study / Home Office',
-    placeholder: 'e.g. A quiet dedicated room with a built-in desk and shelving, good natural light — I work from home every day...',
+    placeholder: 'e.g. Quiet dedicated room with built-in desk and shelving, good natural light — used for working from home daily...',
   },
   outdoor: {
     label: 'Outdoor & Alfresco',
-    placeholder: 'e.g. Covered alfresco dining area, inground pool, landscaped rear garden — we love entertaining outdoors year-round...',
+    placeholder: 'e.g. Covered alfresco dining area, inground pool, landscaped rear garden — we entertain outdoors year-round...',
   },
   garage: {
     label: 'Garage & Parking',
-    placeholder: 'e.g. Double garage with internal access to the house, EV charging point, extra storage area above...',
+    placeholder: 'e.g. Double garage with internal access, EV charging point, extra storage mezzanine above...',
   },
 };
 
@@ -65,26 +66,76 @@ function getActiveRooms(flags: RoomFlags): RoomKey[] {
   return ROOM_ORDER.filter((k) => flags[k]);
 }
 
-// ─── Prompt builders ──────────────────────────────────────────────────────────
+// ─── Prompts ──────────────────────────────────────────────────────────────────
 
-const Q1_PROMPT =
-  "Hi there! Which spaces are you looking to renovate or build, and what's the main goal for this project? Feel free to describe everything in your own words — there are no right or wrong answers.";
+const ZONE_QUESTIONS: Record<RoomKey, string> = {
+  kitchen:      "Tell me about your kitchen — what are the must-haves? Island bench, butler's pantry, appliances, layout?",
+  bathroom:     "Describe your bathrooms — shower style, bath, vanity configuration, finishes, any specific rooms?",
+  masterBedroom:"What's your vision for the master suite? Walk-in robe, ensuite, orientation, size targets?",
+  livingZone:   "How do you want your living and dining to work? Open plan, separate rooms, indoor-outdoor connection?",
+  laundry:      "What do you need from your laundry — bench space, storage, external access, separate room?",
+  study:        "Tell me about the study or home office — how do you use it and what's essential?",
+  outdoor:      "Describe your outdoor vision — alfresco, pool, garden, entertaining. How do you live outside?",
+  garage:       "What are your garage and parking needs — size, EV charging, internal access, storage?",
+};
 
-function buildQ2Prompt(flags: RoomFlags): string {
-  const rooms = getActiveRooms(flags);
-  if (rooms.length === 0) {
-    return "Tell us more about the spaces you have in mind. Describe the key features, layout preferences, or anything specific that matters to you.";
-  }
-  const labels = rooms.map((r) => ROOM_META[r].label);
-  const listed =
-    labels.length === 1
-      ? labels[0]
-      : `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
-  return `Perfect — I've noted you're focusing on your ${listed}. Let's get into the details. Describe your vision for each space in your own words.`;
+function buildScopePrompt(firstName: string): string {
+  return `Hi ${firstName}! Which spaces are you looking to renovate or build, and what's the main goal for this project? Describe everything in your own words — there are no right or wrong answers.`;
 }
 
-const Q3_PROMPT =
-  "Almost there! Is there anything else we should know? Think about material finishes you love, any site constraints, unique requirements, or ideas you haven't mentioned yet.";
+const BUDGET_PROMPT =
+  "What's your target investment budget for this project, and when are you hoping to start or have it completed?";
+
+const FINISHES_PROMPT =
+  "Almost there! Any final details — preferred material finishes, site constraints, heritage overlays, unique requirements, or anything else we should factor in?";
+
+function buildZonePrompt(room: RoomKey, index: number, total: number): string {
+  const q = ZONE_QUESTIONS[room];
+  if (total === 1) return q;
+  if (index === 0) return `Perfect — let's go through each space. ${q}`;
+  if (index === total - 1) return `Last one. ${q}`;
+  return q;
+}
+
+function formatBudgetAnswer(budget: string, timeline: string): string {
+  const parts: string[] = [];
+  if (budget.trim()) parts.push(`Budget: ${budget.trim()}`);
+  if (timeline.trim()) parts.push(`Timeline: ${timeline.trim()}`);
+  return parts.join('\n') || '(No details provided)';
+}
+
+// ─── Phase machine ────────────────────────────────────────────────────────────
+
+type PhaseKind = 'contact' | 'scope' | 'budget' | 'zone' | 'finishes' | 'complete';
+
+interface Phase {
+  kind: PhaseKind;
+  zoneIndex: number;
+}
+
+function getInitialPhase(t: ChatTranscript, rooms: RoomKey[]): Phase {
+  if (t.completedAt) return { kind: 'complete', zoneIndex: 0 };
+  if (t.q1_spaces && (t.budget || t.timeline)) {
+    if (rooms.length === 0) return { kind: 'finishes', zoneIndex: 0 };
+    const firstUnanswered = rooms.findIndex((r) => !t.q2_followups[r]?.trim());
+    if (firstUnanswered === -1) return { kind: 'finishes', zoneIndex: 0 };
+    return { kind: 'zone', zoneIndex: firstUnanswered };
+  }
+  if (t.q1_spaces) return { kind: 'budget', zoneIndex: 0 };
+  if (t.clientContact.name) return { kind: 'scope', zoneIndex: 0 };
+  return { kind: 'contact', zoneIndex: 0 };
+}
+
+function phaseToStep(phase: Phase): number {
+  switch (phase.kind) {
+    case 'contact':  return 1;
+    case 'scope':    return 2;
+    case 'budget':   return 3;
+    case 'zone':     return 4;
+    case 'finishes': return 5;
+    default:         return 0;
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -94,34 +145,30 @@ interface ChatMessage {
   content: string;
 }
 
-type Step = 1 | 2 | 3 | 4;
-
 interface Props {
   transcript: ChatTranscript;
   onUpdate: (t: ChatTranscript) => void;
   onComplete: (t: ChatTranscript) => void;
 }
 
-// ─── Step Indicator ───────────────────────────────────────────────────────────
+// ─── Step indicator ───────────────────────────────────────────────────────────
 
-const STEP_LABELS = ['Spaces & Goals', 'Room Details', 'Final Notes'];
+const STEP_LABELS = ['Contact', 'Spaces', 'Budget', 'Rooms', 'Notes'];
 
-function ChatStepIndicator({ step }: { step: Step }) {
-  if (step === 4) return null;
+function ChatStepIndicator({ step }: { step: number }) {
+  if (step === 0) return null;
   return (
-    <div className="flex items-center justify-center gap-0 mb-6">
+    <div className="flex items-start mb-6">
       {STEP_LABELS.map((label, i) => {
-        const s = (i + 1) as Step;
+        const s = i + 1;
         const isDone = s < step;
         const isCurrent = s === step;
         const isLast = i === STEP_LABELS.length - 1;
         return (
-          <div key={s} className={`flex items-center ${isLast ? '' : 'flex-1'}`}>
-            <div className="flex flex-col items-center gap-1">
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300
-                  ${isDone ? 'bg-indigo-600 text-white' : isCurrent ? 'bg-white border-2 border-indigo-600 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}
-              >
+          <div key={s} className={`flex items-start ${isLast ? '' : 'flex-1'}`}>
+            <div className="flex flex-col items-center gap-1.5">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300
+                ${isDone ? 'bg-indigo-600 text-white' : isCurrent ? 'bg-white border-2 border-indigo-600 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
                 {isDone ? <CheckCircle2 size={13} strokeWidth={2.5} /> : s}
               </div>
               <span className={`text-[10px] font-medium hidden sm:block whitespace-nowrap transition-colors
@@ -130,7 +177,7 @@ function ChatStepIndicator({ step }: { step: Step }) {
               </span>
             </div>
             {!isLast && (
-              <div className="flex-1 h-0.5 mx-2 mb-4 rounded-full bg-slate-200 overflow-hidden">
+              <div className="flex-1 h-0.5 mx-2 mt-3.5 rounded-full bg-slate-200 overflow-hidden">
                 <motion.div
                   className="h-full bg-indigo-500 origin-left"
                   initial={{ scaleX: 0 }}
@@ -146,7 +193,7 @@ function ChatStepIndicator({ step }: { step: Step }) {
   );
 }
 
-// ─── Chat Bubble ─────────────────────────────────────────────────────────────
+// ─── Chat bubbles ─────────────────────────────────────────────────────────────
 
 function AssistantBubble({ content }: { content: string }) {
   return (
@@ -197,126 +244,276 @@ function CompletionScreen() {
   );
 }
 
+// ─── Contact screen (Screen 0) ────────────────────────────────────────────────
+
+interface ContactScreenProps {
+  contact: ClientContact;
+  onChange: (c: ClientContact) => void;
+  onSubmit: () => void;
+}
+
+function ContactScreen({ contact, onChange, onSubmit }: ContactScreenProps) {
+  const canSubmit = contact.name.trim() && contact.email.trim() && contact.siteAddress.trim();
+
+  const field = (
+    label: string,
+    key: keyof ClientContact,
+    placeholder: string,
+    type = 'text',
+    optional = false
+  ) => (
+    <div className="space-y-1.5">
+      <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+        {label}
+        {optional && <span className="text-xs font-normal text-slate-400">(optional)</span>}
+      </label>
+      <input
+        type={type}
+        value={contact[key]}
+        onChange={(e) => onChange({ ...contact, [key]: e.target.value })}
+        onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) onSubmit(); }}
+        placeholder={placeholder}
+        autoComplete={key === 'name' ? 'name' : key === 'email' ? 'email' : key === 'phone' ? 'tel' : 'street-address'}
+        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 text-slate-900
+                   placeholder:text-slate-400 text-sm focus:border-indigo-500 focus:outline-none
+                   transition-colors bg-white"
+      />
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col h-full overflow-y-auto">
+      <div className="max-w-sm mx-auto w-full px-5 py-8 space-y-6">
+        <ChatStepIndicator step={1} />
+
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 mb-1">Let's get started</h2>
+          <p className="text-sm text-slate-500 leading-relaxed">
+            A few quick details before we dive into your project.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {field('Full Name', 'name', 'e.g. Sarah Mitchell')}
+          {field('Email Address', 'email', 'sarah@example.com', 'email')}
+          {field('Mobile', 'phone', '+61 4xx xxx xxx', 'tel', true)}
+          {field('Site Address', 'siteAddress', '14 Harbour View Rd, Newport NSW 2106')}
+        </div>
+
+        <button
+          onClick={onSubmit}
+          disabled={!canSubmit}
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl
+                     bg-indigo-600 text-white font-semibold text-sm
+                     hover:bg-indigo-700 active:bg-indigo-800
+                     disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          Begin
+          <ArrowRight size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Message history builder (for session resume) ─────────────────────────────
+
+function buildInitialMessages(
+  t: ChatTranscript,
+  phase: Phase,
+  rooms: RoomKey[]
+): ChatMessage[] {
+  const msgs: ChatMessage[] = [];
+  if (phase.kind === 'contact') return msgs;
+
+  const firstName = t.clientContact.name.split(' ')[0] || 'there';
+  msgs.push({ id: 'scope-prompt', role: 'assistant', content: buildScopePrompt(firstName) });
+  if (!t.q1_spaces || phase.kind === 'scope') return msgs;
+
+  msgs.push({ id: 'scope-ans', role: 'user', content: t.q1_spaces });
+  msgs.push({ id: 'budget-prompt', role: 'assistant', content: BUDGET_PROMPT });
+  if (phase.kind === 'budget') return msgs;
+
+  msgs.push({ id: 'budget-ans', role: 'user', content: formatBudgetAnswer(t.budget, t.timeline) });
+
+  if (rooms.length === 0) {
+    msgs.push({ id: 'finishes-prompt', role: 'assistant', content: FINISHES_PROMPT });
+    return msgs;
+  }
+
+  for (let i = 0; i < rooms.length; i++) {
+    const room = rooms[i];
+    msgs.push({ id: `zone-prompt-${room}`, role: 'assistant', content: buildZonePrompt(room, i, rooms.length) });
+    if (phase.kind === 'zone' && phase.zoneIndex === i) return msgs;
+    const ans = t.q2_followups[room];
+    if (ans?.trim()) {
+      msgs.push({ id: `zone-ans-${room}`, role: 'user', content: ans });
+    } else {
+      return msgs;
+    }
+  }
+
+  msgs.push({ id: 'finishes-prompt', role: 'assistant', content: FINISHES_PROMPT });
+  if (phase.kind === 'finishes') return msgs;
+  if (t.q3_additional) {
+    msgs.push({ id: 'finishes-ans', role: 'user', content: t.q3_additional });
+  }
+  return msgs;
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function ChatWizard({ transcript, onUpdate, onComplete }: Props) {
-  // ── Derive initial step from saved transcript ──
-  const getInitialStep = (): Step => {
-    if (transcript.completedAt) return 4;
-    if (transcript.q1_spaces && Object.keys(transcript.q2_followups).length > 0) return 3;
-    if (transcript.q1_spaces) return 2;
-    return 1;
-  };
+  const initialRooms = getActiveRooms(transcript.roomFlags);
+  const initialPhase = getInitialPhase(transcript, initialRooms);
 
-  const [step, setStep] = useState<Step>(getInitialStep);
-  const [localFlags, setLocalFlags] = useState<RoomFlags>(transcript.roomFlags);
+  const [phase, setPhase] = useState<Phase>(initialPhase);
+  const [localRooms, setLocalRooms] = useState<RoomKey[]>(initialRooms);
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    buildInitialMessages(transcript, initialPhase, initialRooms)
+  );
 
-  // ── Input state ──
-  const [q1Input, setQ1Input] = useState('');
-  const [q2Inputs, setQ2Inputs] = useState<Partial<Record<RoomKey, string>>>(transcript.q2_followups);
-  const [q3Input, setQ3Input] = useState(transcript.q3_additional);
+  // Per-phase input state
+  const [contact, setContact] = useState<ClientContact>(
+    transcript.clientContact ?? initialClientContact
+  );
+  const [scopeInput, setScopeInput] = useState('');
+  const [budgetInput, setBudgetInput] = useState(transcript.budget);
+  const [timelineInput, setTimelineInput] = useState(transcript.timeline);
+  const [zoneInput, setZoneInput] = useState('');
+  const [finishesInput, setFinishesInput] = useState(transcript.q3_additional);
 
-  // ── Build initial message history from saved transcript ──
-  const buildInitialMessages = (): ChatMessage[] => {
-    const msgs: ChatMessage[] = [{ id: 'q1-prompt', role: 'assistant', content: Q1_PROMPT }];
-    if (!transcript.q1_spaces) return msgs;
-
-    msgs.push({ id: 'q1-answer', role: 'user', content: transcript.q1_spaces });
-    msgs.push({ id: 'q2-prompt', role: 'assistant', content: buildQ2Prompt(transcript.roomFlags) });
-
-    if (Object.keys(transcript.q2_followups).length > 0) {
-      const summary = (ROOM_ORDER as RoomKey[])
-        .filter((k) => transcript.q2_followups[k]?.trim())
-        .map((k) => `${ROOM_META[k].label}:\n${transcript.q2_followups[k]}`)
-        .join('\n\n');
-      if (summary) msgs.push({ id: 'q2-answer', role: 'user', content: summary });
-      msgs.push({ id: 'q3-prompt', role: 'assistant', content: Q3_PROMPT });
+  // Pre-populate zone input when phase moves to a new room
+  useEffect(() => {
+    if (phase.kind === 'zone') {
+      const room = localRooms[phase.zoneIndex];
+      setZoneInput(transcript.q2_followups[room] ?? '');
     }
-
-    if (transcript.q3_additional) {
-      msgs.push({ id: 'q3-answer', role: 'user', content: transcript.q3_additional });
-    }
-    return msgs;
-  };
-
-  const [messages, setMessages] = useState<ChatMessage[]>(buildInitialMessages);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase.kind, phase.zoneIndex]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ── Step submissions ──────────────────────────────────────────────────────
+  // ── Submissions ──────────────────────────────────────────────────────────────
 
-  const submitQ1 = () => {
-    const text = q1Input.trim();
+  const submitContact = () => {
+    if (!contact.name.trim() || !contact.email.trim() || !contact.siteAddress.trim()) return;
+    const updated = { ...transcript, clientContact: contact };
+    onUpdate(updated);
+    const firstName = contact.name.trim().split(' ')[0];
+    setMessages([{ id: 'scope-prompt', role: 'assistant', content: buildScopePrompt(firstName) }]);
+    setPhase({ kind: 'scope', zoneIndex: 0 });
+  };
+
+  const submitScope = () => {
+    const text = scopeInput.trim();
     if (!text) return;
     const flags = parseRoomFlags(text);
-    setLocalFlags(flags);
-    const updated: ChatTranscript = { ...transcript, q1_spaces: text, roomFlags: flags };
+    const rooms = getActiveRooms(flags);
+    setLocalRooms(rooms);
+    const updated = { ...transcript, q1_spaces: text, roomFlags: flags };
     onUpdate(updated);
-    const q2Prompt = buildQ2Prompt(flags);
     setMessages((prev) => [
       ...prev,
-      { id: `u1-${Date.now()}`, role: 'user', content: text },
-      { id: `a2-${Date.now()}`, role: 'assistant', content: q2Prompt },
+      { id: `scope-ans-${Date.now()}`, role: 'user', content: text },
+      { id: `budget-prompt-${Date.now()}`, role: 'assistant', content: BUDGET_PROMPT },
     ]);
-    setQ1Input('');
-    setStep(2);
+    setScopeInput('');
+    setPhase({ kind: 'budget', zoneIndex: 0 });
   };
 
-  const submitQ2 = () => {
-    const updated: ChatTranscript = { ...transcript, q2_followups: q2Inputs };
+  const submitBudget = () => {
+    const updated = { ...transcript, budget: budgetInput.trim(), timeline: timelineInput.trim() };
+    onUpdate(updated);
+    const answer = formatBudgetAnswer(budgetInput, timelineInput);
+    const newMsgs: ChatMessage[] = [
+      { id: `budget-ans-${Date.now()}`, role: 'user', content: answer },
+    ];
+    const rooms = localRooms;
+    if (rooms.length > 0) {
+      newMsgs.push({
+        id: `zone-0-prompt-${Date.now()}`,
+        role: 'assistant',
+        content: buildZonePrompt(rooms[0], 0, rooms.length),
+      });
+      setMessages((prev) => [...prev, ...newMsgs]);
+      setPhase({ kind: 'zone', zoneIndex: 0 });
+    } else {
+      newMsgs.push({ id: `finishes-prompt-${Date.now()}`, role: 'assistant', content: FINISHES_PROMPT });
+      setMessages((prev) => [...prev, ...newMsgs]);
+      setPhase({ kind: 'finishes', zoneIndex: 0 });
+    }
+  };
+
+  const submitZone = () => {
+    const room = localRooms[phase.zoneIndex];
+    const text = zoneInput.trim();
+    const newFollowups = { ...transcript.q2_followups, [room]: text };
+    const updated = { ...transcript, q2_followups: newFollowups };
     onUpdate(updated);
 
-    const activeRooms = getActiveRooms(localFlags).length > 0
-      ? getActiveRooms(localFlags)
-      : (['livingZone'] as RoomKey[]);
+    const nextIdx = phase.zoneIndex + 1;
+    const newMsgs: ChatMessage[] = [];
+    if (text) newMsgs.push({ id: `zone-ans-${room}-${Date.now()}`, role: 'user', content: text });
 
-    const summary = activeRooms
-      .filter((k) => q2Inputs[k]?.trim())
-      .map((k) => `${ROOM_META[k].label}:\n${q2Inputs[k]}`)
-      .join('\n\n');
-
-    setMessages((prev) => [
-      ...prev,
-      ...(summary ? [{ id: `u2-${Date.now()}`, role: 'user' as const, content: summary }] : []),
-      { id: `a3-${Date.now()}`, role: 'assistant' as const, content: Q3_PROMPT },
-    ]);
-    setStep(3);
+    if (nextIdx < localRooms.length) {
+      newMsgs.push({
+        id: `zone-prompt-${nextIdx}-${Date.now()}`,
+        role: 'assistant',
+        content: buildZonePrompt(localRooms[nextIdx], nextIdx, localRooms.length),
+      });
+      setMessages((prev) => [...prev, ...newMsgs]);
+      setPhase({ kind: 'zone', zoneIndex: nextIdx });
+    } else {
+      newMsgs.push({ id: `finishes-prompt-${Date.now()}`, role: 'assistant', content: FINISHES_PROMPT });
+      setMessages((prev) => [...prev, ...newMsgs]);
+      setPhase({ kind: 'finishes', zoneIndex: 0 });
+    }
   };
 
-  const submitQ3 = () => {
-    const text = q3Input.trim();
+  const submitFinishes = () => {
+    const text = finishesInput.trim();
     const completedAt = new Date().toISOString();
-    const updated: ChatTranscript = { ...transcript, q3_additional: text, completedAt };
+    const updated = { ...transcript, q3_additional: text, completedAt };
     onUpdate(updated);
     onComplete(updated);
     if (text) {
       setMessages((prev) => [
         ...prev,
-        { id: `u3-${Date.now()}`, role: 'user', content: text },
+        { id: `fin-ans-${Date.now()}`, role: 'user', content: text },
       ]);
     }
-    setStep(4);
+    setPhase({ kind: 'complete', zoneIndex: 0 });
   };
 
-  // ── Active rooms (for Q2 input rendering) ────────────────────────────────
+  // ── Derived ──────────────────────────────────────────────────────────────────
 
-  const activeRooms = getActiveRooms(localFlags).length > 0
-    ? getActiveRooms(localFlags)
-    : (['livingZone'] as RoomKey[]);
+  const currentRoom = phase.kind === 'zone' ? localRooms[phase.zoneIndex] : undefined;
+  const indicatorStep = phaseToStep(phase);
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────────
 
-  if (step === 4) return <CompletionScreen />;
+  if (phase.kind === 'contact') {
+    return (
+      <ContactScreen
+        contact={contact}
+        onChange={setContact}
+        onSubmit={submitContact}
+      />
+    );
+  }
+
+  if (phase.kind === 'complete') return <CompletionScreen />;
 
   return (
     <div className="flex flex-col h-full">
 
       {/* Step indicator */}
       <div className="px-5 pt-6 pb-2 max-w-2xl mx-auto w-full">
-        <ChatStepIndicator step={step} />
+        <ChatStepIndicator step={indicatorStep} />
       </div>
 
       {/* Chat history */}
@@ -343,100 +540,139 @@ export function ChatWizard({ transcript, onUpdate, onComplete }: Props) {
 
       {/* Input panel */}
       <div className="border-t border-slate-100 bg-slate-50 px-5 py-4 shrink-0">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto space-y-3">
 
-          {/* Q1 input */}
-          {step === 1 && (
-            <div className="space-y-3">
+          {/* Scope */}
+          {phase.kind === 'scope' && (
+            <>
               <textarea
-                value={q1Input}
-                onChange={(e) => setQ1Input(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitQ1(); }}
-                placeholder="e.g. We want to renovate the kitchen and master bedroom, and add an outdoor entertaining area. The main goal is to create a modern family home that's great for entertaining..."
+                value={scopeInput}
+                onChange={(e) => setScopeInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitScope(); }}
+                placeholder="e.g. We want to renovate the kitchen and both bathrooms, add a master bedroom ensuite, and create an outdoor entertaining area..."
                 rows={4}
+                autoFocus
                 className="w-full px-4 py-3.5 rounded-2xl border-2 border-slate-200 bg-white
                            text-slate-900 placeholder:text-slate-400 text-sm leading-relaxed
                            focus:border-indigo-500 focus:outline-none resize-none transition-colors"
-                autoFocus
               />
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-400">⌘↵ to send</span>
-                <button
-                  onClick={submitQ1}
-                  disabled={!q1Input.trim()}
+                <button onClick={submitScope} disabled={!scopeInput.trim()}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white
-                             font-semibold text-sm hover:bg-indigo-700 active:bg-indigo-800
-                             disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Send size={14} />
-                  Continue
+                             font-semibold text-sm hover:bg-indigo-700 disabled:opacity-40
+                             disabled:cursor-not-allowed transition-colors">
+                  <Send size={14} /> Continue
                 </button>
               </div>
-            </div>
+            </>
           )}
 
-          {/* Q2 input — dynamic per-room textareas */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <div className="grid gap-4 max-h-[50vh] overflow-y-auto pr-1">
-                {activeRooms.map((room) => (
-                  <div key={room} className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                      {ROOM_META[room].label}
-                    </label>
-                    <textarea
-                      value={q2Inputs[room] ?? ''}
-                      onChange={(e) => setQ2Inputs((prev) => ({ ...prev, [room]: e.target.value }))}
-                      placeholder={ROOM_META[room].placeholder}
-                      rows={3}
-                      className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 bg-white
-                                 text-slate-900 placeholder:text-slate-400 text-sm leading-relaxed
-                                 focus:border-indigo-500 focus:outline-none resize-none transition-colors"
-                    />
-                  </div>
-                ))}
+          {/* Budget & timeline */}
+          {phase.kind === 'budget' && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                    Target Budget
+                  </label>
+                  <input
+                    type="text"
+                    value={budgetInput}
+                    onChange={(e) => setBudgetInput(e.target.value)}
+                    placeholder="e.g. $250K – $500K"
+                    autoFocus
+                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white
+                               text-slate-900 placeholder:text-slate-400 text-sm
+                               focus:border-indigo-500 focus:outline-none transition-colors"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                    Intended Timeline
+                  </label>
+                  <input
+                    type="text"
+                    value={timelineInput}
+                    onChange={(e) => setTimelineInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') submitBudget(); }}
+                    placeholder="e.g. Start early 2026"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white
+                               text-slate-900 placeholder:text-slate-400 text-sm
+                               focus:border-indigo-500 focus:outline-none transition-colors"
+                  />
+                </div>
               </div>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs text-slate-400">Fill in what's relevant — skip anything that doesn't apply</span>
-                <button
-                  onClick={submitQ2}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-400">Skip either if not yet decided</span>
+                <button onClick={submitBudget}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white
-                             font-semibold text-sm hover:bg-indigo-700 active:bg-indigo-800 transition-colors"
-                >
-                  <Send size={14} />
-                  Continue
+                             font-semibold text-sm hover:bg-indigo-700 transition-colors">
+                  <Send size={14} /> Continue
                 </button>
               </div>
-            </div>
+            </>
           )}
 
-          {/* Q3 input */}
-          {step === 3 && (
-            <div className="space-y-3">
+          {/* Zone deep-dive */}
+          {phase.kind === 'zone' && currentRoom && (
+            <>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  {ROOM_META[currentRoom].label}
+                  <span className="ml-2 font-normal normal-case text-slate-400">
+                    {phase.zoneIndex + 1} of {localRooms.length}
+                  </span>
+                </label>
+                <textarea
+                  key={currentRoom}
+                  value={zoneInput}
+                  onChange={(e) => setZoneInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitZone(); }}
+                  placeholder={ROOM_META[currentRoom].placeholder}
+                  rows={4}
+                  autoFocus
+                  className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 bg-white
+                             text-slate-900 placeholder:text-slate-400 text-sm leading-relaxed
+                             focus:border-indigo-500 focus:outline-none resize-none transition-colors"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-400">Skip if not applicable</span>
+                <button onClick={submitZone}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white
+                             font-semibold text-sm hover:bg-indigo-700 transition-colors">
+                  <Send size={14} />
+                  {phase.zoneIndex + 1 < localRooms.length ? 'Continue' : 'Next'}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Finishes & notes */}
+          {phase.kind === 'finishes' && (
+            <>
               <textarea
-                value={q3Input}
-                onChange={(e) => setQ3Input(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitQ3(); }}
-                placeholder="e.g. Heritage overlay on the front facade — no visible changes to the street elevation. Polished concrete floors throughout. An existing 80-year-old Jacaranda tree must be retained. We already have stone and joinery samples picked out..."
+                value={finishesInput}
+                onChange={(e) => setFinishesInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitFinishes(); }}
+                placeholder="e.g. Heritage overlay on the front facade. Polished concrete floors throughout ground level. Existing Jacaranda tree must be retained. Future pool provision in structural design. Stone and joinery samples already selected..."
                 rows={5}
+                autoFocus
                 className="w-full px-4 py-3.5 rounded-2xl border-2 border-slate-200 bg-white
                            text-slate-900 placeholder:text-slate-400 text-sm leading-relaxed
                            focus:border-indigo-500 focus:outline-none resize-none transition-colors"
-                autoFocus
               />
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-400">Skip if nothing else to add</span>
-                <button
-                  onClick={submitQ3}
+                <button onClick={submitFinishes}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
                              bg-gradient-to-r from-indigo-600 to-violet-600 text-white
-                             hover:from-indigo-500 hover:to-violet-500 transition-all active:scale-[0.98]"
-                >
-                  <CheckCircle2 size={14} />
-                  Submit
+                             hover:from-indigo-500 hover:to-violet-500 transition-all active:scale-[0.98]">
+                  <CheckCircle2 size={14} /> Submit
                 </button>
               </div>
-            </div>
+            </>
           )}
 
         </div>

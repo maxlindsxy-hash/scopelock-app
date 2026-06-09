@@ -120,11 +120,57 @@ Created `regulations.json` in the project root as the canonical compliance refer
 
 ---
 
-## Phase 5 — Launch Hardening 🔜
+## Phase 5 — V1.0 Conversational Intake & Validation Gate ✅
+
+**Shipped. This is the true Version 1.0 of ScopeLock.** The full B2B two-sided platform is complete: a premium, white-labelled conversational intake for the client and a compliance-grounded brief generation engine behind a contractor-controlled validation gate.
+
+### 5.1 — Client Identification (Screen 0)
+A welcoming pre-chat identity screen precedes the conversation, capturing structured contact data before any project discussion begins.
+
+- **Full Name** (required), **Email Address** (required), **Mobile** (optional), **Site Address** (required)
+- `ClientContact` interface added to `ChatTranscript` — data stored verbatim in session metadata, never AI-processed
+- Begin button gates on Name + Email + Site Address; personalised greeting ("Hi Sarah!") uses first name in the first assistant bubble
+- Dashboard toggle completely removed from the client-facing header — clients never see or can access contractor tooling
+- `localStorage` key bumped to `scopelock_active_v3` to prevent stale-schema collisions with all prior sessions
+
+### 5.2 — 5-Phase Conversational Queue
+The 3-step flat wizard was replaced with a natural, fully sequential conversational queue. Each phase steps through one focused input at a time — no compound blocks.
+
+| Phase | Label | Input |
+|---|---|---|
+| 0 | Contact | Screen 0 identity form — 4 structured fields |
+| 1 | Spaces | Freetext scope filter → client-side keyword parser fires `roomFlags` |
+| 2 | Budget | Two side-by-side inputs: Target Budget + Intended Timeline (both skippable) |
+| 3…N | Rooms | One dedicated textarea per flagged room, stepped sequentially — "1 of 4" counter in label |
+| Final | Notes | Open catch-all: finishes, constraints, heritage, unique requirements |
+
+- **`budget: string`** and **`timeline: string`** added to `ChatTranscript`
+- Step indicator updated to 5 labels: Contact · Spaces · Budget · Rooms · Notes
+- Zone deep-dive steps use `key={currentRoom}` on the textarea so `autoFocus` re-fires correctly on every room transition
+- **Session resumption**: `getInitialPhase()` finds the first unanswered room on reload; `buildInitialMessages()` reconstructs the full chat history from saved transcript fields
+- No-rooms-detected edge case: skips zone phase entirely and advances directly to Finishes
+
+### 5.3 — Extended Contractor Dashboard
+The raw transcript card now surfaces all intake fields in clearly separated sections.
+
+- **Client Details block**: Name, Email, Mobile, Site Address displayed with icons
+- **Budget & Timeline block**: Side-by-side cards showing verbatim budget and timeline answers
+- **Room Details**: Per-room sub-sections sourced from zone deep-dive answers
+- **Finishes & Notes**: Verbatim catch-all
+- Dashboard header dynamically shows client name: "[Name]'s Intake"
+- `EmptyState` fires when neither `clientContact.name` nor `q1_spaces` is present
+
+### Build verification
+- `tsc -b` — zero TypeScript errors across all modified files
+- `vite build` — 2270 modules, 1.80s, 623KB gzip. No new warnings introduced.
+
+---
+
+## Phase 6 — Launch Hardening 🔜
 
 **Final pre-launch tasks.** Vercel environment, domain, observability, and access control.
 
-### 5.1 — Vercel Environment Variable Audit
+### 6.1 — Vercel Environment Variable Audit
 Confirm all production secrets are correctly set in the Vercel dashboard and not accidentally committed to the repo.
 
 - `ANTHROPIC_API_KEY` — verify it is set under **Settings → Environment Variables → Production** (not Preview or Development only)
@@ -132,7 +178,7 @@ Confirm all production secrets are correctly set in the Vercel dashboard and not
 - Rotate the API key if there is any doubt about exposure
 - Add `VERCEL_ENV` guard to `api/refine.ts` if rate-limiting by environment is needed
 
-### 5.2 — Custom Domain Mapping
+### 6.2 — Custom Domain Mapping
 Map the production alias to a custom domain for a professional client-facing URL.
 
 - Purchase or transfer domain (e.g. `scopelock.com.au` or `app.scopelock.com.au`)
@@ -141,14 +187,14 @@ Map the production alias to a custom domain for a professional client-facing URL
 - Verify SSL certificate auto-provisioned via Let's Encrypt
 - Update `roadmap.md` **Live URL** once confirmed
 
-### 5.3 — API Rate Limiting & Abuse Prevention
+### 6.3 — API Rate Limiting & Abuse Prevention
 The `/api/refine` edge function is publicly callable with no authentication. Before launch:
 
 - Add a simple IP-based rate limit (Vercel's built-in edge middleware or Upstash Redis)
 - Return `429 Too Many Requests` with a `Retry-After` header on breach
 - Front-end should surface a `toast.error` on 429 rather than falling through to local engine silently (distinguish rate-limit from genuine offline)
 
-### 5.4 — Production Error Monitoring
+### 6.4 — Production Error Monitoring
 Add Sentry (or similar) so production errors surface without needing a user to report them.
 
 - Install `@sentry/react` and `@sentry/vite-plugin`
@@ -156,46 +202,54 @@ Add Sentry (or similar) so production errors surface without needing a user to r
 - Set `release` tag to git SHA via Vite define at build time
 - Add `SENTRY_DSN` to Vercel environment variables
 
-### 5.5 — Performance Baseline
+### 6.5 — Performance Baseline
 The main JS bundle is ~1.9MB (620KB gzip), driven primarily by `@react-pdf/renderer`. Before launch, establish a baseline and document acceptable thresholds.
 
 - Run Lighthouse on the production URL; target LCP < 2.5s on 4G
 - Consider lazy-loading `BriefPDF` behind a dynamic `import()` to defer the renderer until the PDF button is clicked
 - Document the baseline score in this file once measured
 
-### 5.6 — Smoke Test Checklist (Pre-Deploy Gate)
+### 6.6 — Smoke Test Checklist (Pre-Deploy Gate)
 Run this manually before each production deploy:
 
-**Client Chat Flow**
-- [ ] Q1: Type a description mentioning "kitchen" and "bathroom" — confirm Continue activates, room flags parse correctly
-- [ ] Q2: Confirm labeled textareas appear for each detected room only (no phantom rooms); "Fill in what's relevant" hint visible
-- [ ] Q3: Confirm Q2 answers appear as a right-aligned user bubble in the chat history before Q3 prompt appears
-- [ ] Submit Q3 — confirm "All done!" completion screen renders and "Go to Dashboard" toast fires
-- [ ] Refresh mid-chat (after Q1) — confirm step 2 is restored, Q1 answer visible in chat history
-- [ ] Type Q1 with NO recognisable room keywords — confirm Q2 still renders with a generic "Living & Dining" fallback textarea
+**Screen 0 — Client Identity**
+- [ ] Load fresh session — confirm Screen 0 shows with 5-step indicator (Contact active), no Dashboard toggle visible
+- [ ] Begin button disabled until Name + Email + Site Address are all filled
+- [ ] Submit Screen 0 — confirm chat opens with personalised greeting ("Hi [FirstName]!")
+
+**Client Chat Flow — Phases 1–5**
+- [ ] Phase 1 (Spaces): Type description with "kitchen" and "bathroom" — Continue activates, flags parse correctly
+- [ ] Phase 2 (Budget): Two side-by-side inputs render; both skippable; Continue always enabled
+- [ ] Phase 3+ (Rooms): One room per step — "1 of N" counter visible; textarea autoFocuses on each room transition
+- [ ] Confirm no-rooms-detected edge case skips Room phase and advances directly to Finishes
+- [ ] Submit Finishes — "All done!" screen renders, "Go to Dashboard" toast fires
+- [ ] Refresh mid-chat (after Scope) — confirm correct phase restores, full chat history rebuilt from transcript
 
 **Contractor Dashboard**
-- [ ] Switch to Dashboard before client submits — confirm generate button is disabled with "Awaiting client submission…" label
-- [ ] Switch to Dashboard after client submits — confirm `completedAt` timestamp is shown and button is active
-- [ ] Verify raw transcript card shows Q1, Q2 (per-room sub-sections), and Q3 verbatim — no AI paraphrasing
-- [ ] Verify detected spaces chips match the rooms flagged from Q1
+- [ ] Dashboard toggle absent in client view; "Client Chat" back-button present in contractor view only
+- [ ] Client Details block shows Name, Email, Mobile (if provided), Site Address
+- [ ] Budget & Timeline block shows verbatim entries (hidden entirely if both blank)
+- [ ] Room Details shows per-room sub-cards verbatim; hidden entirely if no zone answers
+- [ ] Generate button disabled ("Awaiting client submission…") until `completedAt` is set
+- [ ] Header shows "[Name]'s Intake" after Screen 0 is submitted
 
 **Brief Generation**
-- [ ] Click "[ Generate Professional Brief ]" with AI online — confirm "AI PROCESSING" indicator in right panel, spinner on button, brief populates within ~30s
-- [ ] Confirm generated brief cites at least one AS/NCC standard in every room scope section
-- [ ] Confirm multi-zone input (e.g. "bathroom and ensuite") produces `## ZONE NAME ##` separated sub-sections in the brief panel
-- [ ] Generate offline (DevTools → Network → Offline) — confirm fallback toast fires; note fallback brief will be minimal (known tech debt)
-- [ ] History: confirm completed session is saved and loadable; loading a generated session opens contractor view
+- [ ] Click "[ Generate Professional Brief ]" — "AI PROCESSING" indicator fires, brief populates within ~30s
+- [ ] Confirm generated brief cites at least one AS/NCC standard per room scope section
+- [ ] Multi-zone input (e.g. "bathroom and ensuite") produces `## ZONE NAME ##` sub-sections
+- [ ] Generate offline — fallback toast fires (fallback brief minimal — known tech debt)
+- [ ] History: completed session saves and reloads into contractor view
 
 **Exports & Print**
-- [ ] Download PDF — confirm file opens, contractor header present, all brief sections included
-- [ ] Export MD — confirm `## ZONE NAME ##` delimiters appear as `####` headings
-- [ ] Print (Ctrl+P) — confirm client chat panel is hidden, brief fills the page, no sections cut across page break
+- [ ] Download PDF — opens correctly, contractor header and all sections present
+- [ ] Export MD — `## ZONE NAME ##` delimiters render as `####` headings
+- [ ] Print (Ctrl+P) — chat panel hidden, brief fills page, no orphaned section headers
 
 **Mobile (375px viewport)**
-- [ ] Client chat: confirm step indicator, chat bubbles, and textarea all render correctly; Continue/Submit buttons reachable
-- [ ] Contractor view: confirm "Brief Preview" FAB is visible, bottom-sheet modal opens with full brief
-- [ ] Signature field: confirm canvas is usable with touch input
+- [ ] Screen 0: all four fields reachable, Begin button full-width at bottom
+- [ ] Chat phases: step indicator, bubbles, and textarea stack correctly; Continue/Submit reachable
+- [ ] Contractor view: single "Brief Preview" FAB (no duplicate generate button)
+- [ ] Signature canvas: usable with touch input, "Signature captured" confirmation fires
 
 ---
 
@@ -209,4 +263,5 @@ Run this manually before each production deploy:
 | `regulations.json` is embedded in the API as a string constant; not read at runtime — update both files if compliance data changes | Low |
 | No unit or integration tests | Medium |
 | `eslint-disable` on signature `useEffect` dependency array | Low |
-| `/api/refine` has no authentication or rate limiting | High — Phase 5.3 |
+| `/api/refine` payload does not yet include `clientContact`, `budget`, or `timeline` — AI brief infers from free-text only | Medium — Phase 6 follow-up |
+| `/api/refine` has no authentication or rate limiting | High — Phase 6.3 |

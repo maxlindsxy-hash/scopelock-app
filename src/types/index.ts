@@ -1,5 +1,19 @@
 // ─── Chat Transcript (Steps 1 & 2) ───────────────────────────────────────────
 
+export interface ClientContact {
+  name: string;
+  email: string;
+  phone: string;
+  siteAddress: string;
+}
+
+export const initialClientContact: ClientContact = {
+  name: '',
+  email: '',
+  phone: '',
+  siteAddress: '',
+};
+
 export interface RoomFlags {
   kitchen: boolean;
   bathroom: boolean;
@@ -14,9 +28,17 @@ export interface RoomFlags {
 export type RoomKey = keyof RoomFlags;
 
 export interface ChatTranscript {
+  // Screen 0 — client identity
+  clientContact: ClientContact;
+  // Step 1 — scope filter
   q1_spaces: string;
   roomFlags: RoomFlags;
+  // Step 2 — budget & timeline
+  budget: string;
+  timeline: string;
+  // Steps 3..N — per-room zone deep-dives
   q2_followups: Partial<Record<RoomKey, string>>;
+  // Final step — finishes & custom notes
   q3_additional: string;
   completedAt: string | null;
 }
@@ -33,8 +55,11 @@ export const initialRoomFlags: RoomFlags = {
 };
 
 export const initialChatTranscript: ChatTranscript = {
+  clientContact: initialClientContact,
   q1_spaces: '',
   roomFlags: initialRoomFlags,
+  budget: '',
+  timeline: '',
   q2_followups: {},
   q3_additional: '',
   completedAt: null,

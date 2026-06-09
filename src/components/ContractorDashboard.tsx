@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Sparkles, ClipboardList, MessageSquare, AlertCircle } from 'lucide-react';
+import { Sparkles, ClipboardList, MessageSquare, AlertCircle, User, MapPin, DollarSign, Calendar } from 'lucide-react';
 import type { ChatTranscript, RoomKey } from '../types';
 import { ROOM_ORDER, ROOM_META } from './ChatWizard';
 
@@ -24,6 +24,12 @@ function EmptyState() {
   );
 }
 
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</span>
+  );
+}
+
 function TranscriptField({ label, value }: { label: string; value: string }) {
   if (!value.trim()) return null;
   return (
@@ -36,13 +42,32 @@ function TranscriptField({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ContractorDashboard({ transcript, refNumber, isGenerating, onGenerate }: Props) {
-  if (!transcript?.q1_spaces) return <EmptyState />;
+function MetaRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  if (!value.trim()) return null;
+  return (
+    <div className="flex items-start gap-3">
+      <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">{label}</p>
+        <p className="text-sm font-semibold text-slate-800 leading-snug">{value}</p>
+      </div>
+    </div>
+  );
+}
 
-  const hasQ2 = Object.values(transcript.q2_followups).some((v) => v?.trim());
-  const activeRooms = (ROOM_ORDER as RoomKey[]).filter((k) => transcript.q2_followups[k]?.trim());
-  const submittedAt = transcript.completedAt
-    ? new Date(transcript.completedAt).toLocaleString('en-AU', {
+export function ContractorDashboard({ transcript, refNumber, isGenerating, onGenerate }: Props) {
+  const hasStarted = transcript?.clientContact?.name || transcript?.q1_spaces;
+  if (!hasStarted) return <EmptyState />;
+
+  const { clientContact, q1_spaces, budget, timeline, q2_followups, q3_additional, roomFlags, completedAt } = transcript!;
+
+  const hasQ2 = Object.values(q2_followups).some((v) => v?.trim());
+  const activeRooms = (ROOM_ORDER as RoomKey[]).filter((k) => q2_followups[k]?.trim());
+
+  const submittedAt = completedAt
+    ? new Date(completedAt).toLocaleString('en-AU', {
         day: 'numeric', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit',
       })
@@ -60,17 +85,19 @@ export function ContractorDashboard({ transcript, refNumber, isGenerating, onGen
               Raw Client Transcript
             </span>
           </div>
-          <h2 className="text-xl font-bold text-slate-900">Client Intake Responses</h2>
+          <h2 className="text-xl font-bold text-slate-900">
+            {clientContact?.name ? `${clientContact.name}'s Intake` : 'Client Intake Responses'}
+          </h2>
           <p className="text-sm text-slate-500">
             Exactly as typed — no AI modification. Review before generating the brief.
           </p>
         </div>
 
         {/* Ref + timestamp */}
-        <div className="flex items-center gap-4 text-xs text-slate-400 font-medium">
+        <div className="flex items-center gap-4 text-xs text-slate-400 font-medium flex-wrap">
           <span>Ref: <span className="text-slate-600 font-semibold">{refNumber}</span></span>
           {submittedAt && <span>Submitted: <span className="text-slate-600">{submittedAt}</span></span>}
-          {!transcript.completedAt && (
+          {!completedAt && (
             <span className="flex items-center gap-1 text-amber-500">
               <AlertCircle size={12} />
               In progress
@@ -79,76 +106,105 @@ export function ContractorDashboard({ transcript, refNumber, isGenerating, onGen
         </div>
 
         {/* Transcript card */}
-        <div className="rounded-2xl border-2 border-slate-200 bg-white overflow-hidden">
+        <div className="rounded-2xl border-2 border-slate-200 bg-white overflow-hidden divide-y divide-slate-100">
 
-          {/* Q1 */}
-          <div className="px-5 py-5 border-b border-slate-100 space-y-2">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                Q1 · Spaces & Goals
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 italic mb-2">
-              "Which spaces are you looking to renovate or build, and what's the main goal?"
-            </p>
-            <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
-              {transcript.q1_spaces}
-            </p>
-          </div>
-
-          {/* Q2 — per-room follow-ups */}
-          {hasQ2 && (
-            <div className="px-5 py-5 border-b border-slate-100 space-y-4">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                  Q2 · Room Details
-                </span>
+          {/* Client contact */}
+          {clientContact?.name && (
+            <div className="px-5 py-5 space-y-4">
+              <SectionHeader label="Client Details" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+                <MetaRow icon={<User size={13} className="text-slate-500" />} label="Name" value={clientContact.name} />
+                <MetaRow icon={<MessageSquare size={13} className="text-slate-500" />} label="Email" value={clientContact.email} />
+                {clientContact.phone && (
+                  <MetaRow icon={<MessageSquare size={13} className="text-slate-500" />} label="Mobile" value={clientContact.phone} />
+                )}
+                <MetaRow icon={<MapPin size={13} className="text-slate-500" />} label="Site Address" value={clientContact.siteAddress} />
               </div>
-              <p className="text-xs text-slate-400 italic mb-3">
+            </div>
+          )}
+
+          {/* Scope */}
+          {q1_spaces && (
+            <div className="px-5 py-5 space-y-2">
+              <SectionHeader label="Scope & Goals" />
+              <p className="text-xs text-slate-400 italic mt-1 mb-2">
+                "Which spaces are you looking to renovate or build, and what's the main goal?"
+              </p>
+              <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+                {q1_spaces}
+              </p>
+            </div>
+          )}
+
+          {/* Budget & timeline */}
+          {(budget || timeline) && (
+            <div className="px-5 py-5 space-y-3">
+              <SectionHeader label="Budget & Timeline" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                {budget && (
+                  <div className="flex items-start gap-3 bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+                    <DollarSign size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Budget</p>
+                      <p className="text-sm font-semibold text-slate-800">{budget}</p>
+                    </div>
+                  </div>
+                )}
+                {timeline && (
+                  <div className="flex items-start gap-3 bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
+                    <Calendar size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Timeline</p>
+                      <p className="text-sm font-semibold text-slate-800">{timeline}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Zone deep-dives */}
+          {hasQ2 && (
+            <div className="px-5 py-5 space-y-4">
+              <SectionHeader label="Room Details" />
+              <p className="text-xs text-slate-400 italic mt-1">
                 "Describe your vision for each space in your own words."
               </p>
-              <div className="space-y-4">
+              <div className="space-y-4 mt-2">
                 {activeRooms.map((room) => (
                   <TranscriptField
                     key={room}
                     label={ROOM_META[room].label}
-                    value={transcript.q2_followups[room] ?? ''}
+                    value={q2_followups[room] ?? ''}
                   />
                 ))}
               </div>
             </div>
           )}
 
-          {/* Q3 */}
-          {transcript.q3_additional && (
+          {/* Finishes & notes */}
+          {q3_additional && (
             <div className="px-5 py-5 space-y-2">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                  Q3 · Additional Notes
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 italic mb-2">
-                "Any other requirements, material preferences, or unique details?"
+              <SectionHeader label="Finishes & Additional Notes" />
+              <p className="text-xs text-slate-400 italic mt-1 mb-2">
+                "Any final details — material finishes, site constraints, or unique requirements?"
               </p>
               <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
-                {transcript.q3_additional}
+                {q3_additional}
               </p>
             </div>
           )}
         </div>
 
-        {/* Room flags summary */}
-        {(ROOM_ORDER as RoomKey[]).some((k) => transcript.roomFlags[k]) && (
+        {/* Detected spaces */}
+        {(ROOM_ORDER as RoomKey[]).some((k) => roomFlags[k]) && (
           <div className="rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-3">
             <p className="text-xs font-semibold text-indigo-700 mb-2">Detected spaces</p>
             <div className="flex flex-wrap gap-1.5">
               {(ROOM_ORDER as RoomKey[])
-                .filter((k) => transcript.roomFlags[k])
+                .filter((k) => roomFlags[k])
                 .map((k) => (
-                  <span
-                    key={k}
-                    className="px-2.5 py-1 rounded-full bg-indigo-600 text-white text-xs font-medium"
-                  >
+                  <span key={k} className="px-2.5 py-1 rounded-full bg-indigo-600 text-white text-xs font-medium">
                     {ROOM_META[k].label}
                   </span>
                 ))}
@@ -166,9 +222,9 @@ export function ContractorDashboard({ transcript, refNumber, isGenerating, onGen
           </div>
           <motion.button
             onClick={onGenerate}
-            disabled={isGenerating || !transcript.completedAt}
+            disabled={isGenerating || !completedAt}
             whileTap={isGenerating ? {} : { scale: 0.97 }}
-            animate={isGenerating || !transcript.completedAt ? {} : {
+            animate={isGenerating || !completedAt ? {} : {
               boxShadow: [
                 '0 6px 20px rgba(109,40,217,0.35)',
                 '0 6px 32px rgba(109,40,217,0.60)',
@@ -178,20 +234,15 @@ export function ContractorDashboard({ transcript, refNumber, isGenerating, onGen
             transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}
             className={`w-full flex items-center justify-center gap-2.5 py-4 rounded-xl
                        font-bold text-sm transition-all
-                       ${isGenerating || !transcript.completedAt
+                       ${isGenerating || !completedAt
                          ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
                          : 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-400 hover:to-violet-400'
                        }`}
           >
             <Sparkles size={17} className={isGenerating ? 'animate-spin' : ''} />
-            {isGenerating
-              ? 'Generating Brief…'
-              : !transcript.completedAt
-                ? 'Awaiting client submission…'
-                : '[ Generate Professional Brief ]'
-            }
+            {isGenerating ? 'Generating Brief…' : !completedAt ? 'Awaiting client submission…' : '[ Generate Professional Brief ]'}
           </motion.button>
-          {!transcript.completedAt && (
+          {!completedAt && (
             <p className="text-xs text-slate-500 text-center">
               The generate button activates once the client submits their chat.
             </p>
