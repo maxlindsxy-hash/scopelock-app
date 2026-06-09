@@ -7,7 +7,6 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Sparkles,
   X,
   Settings,
   History,
@@ -733,26 +732,6 @@ export default function App() {
         </motion.div>
       )}
 
-      {/* Floating "Generate" snackbar button for contractor view on mobile */}
-      {view === 'contractor' && !briefGenerated && transcript.completedAt && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="lg:hidden fixed bottom-6 left-5 z-30 no-print"
-        >
-          <button
-            onClick={handleGenerate}
-            disabled={isRefining}
-            className="flex items-center gap-2 px-4 py-3 rounded-2xl font-semibold text-sm
-                       bg-gradient-to-r from-indigo-600 to-violet-600 text-white
-                       shadow-xl shadow-indigo-300/50 active:scale-95 transition-all
-                       disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <Sparkles size={15} className={isRefining ? 'animate-spin' : ''} />
-            {isRefining ? 'Generating…' : 'Generate Brief'}
-          </button>
-        </motion.div>
-      )}
     </div>
   );
 }
