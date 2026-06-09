@@ -29,3 +29,16 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+.env*
+
+# Screenshots / local test artefacts
+screenshots/
+*.png
+
+# Local tooling / unrelated files
+.claude/
+odysseus/
+jarvis_mic.py
+setup_remote_tunnel.bat
+prompt.md
