@@ -60,7 +60,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       sessionIds.map((id) => kvGet(`intake:${tenantId}:${id}`))
     );
 
-    const submissions = results.filter(Boolean);
+    const submissions = results.filter(
+      (s): s is NonNullable<typeof s> => !!s && (s as Record<string, unknown>)['tenantId'] === tenantId
+    );
     return res.status(200).json({ submissions });
   } catch (err) {
     console.error('[tenant-submissions] Error:', err);

@@ -66,6 +66,46 @@ function getActiveRooms(flags: RoomFlags): RoomKey[] {
   return ROOM_ORDER.filter((k) => flags[k]);
 }
 
+// ─── Architectural context options ───────────────────────────────────────────
+
+const HERITAGE_OPTIONS = [
+  { value: 'none',              label: 'Not Listed'         },
+  { value: 'conservation-area', label: 'Conservation Area'  },
+  { value: 'heritage-listed',   label: 'Heritage Listed'    },
+];
+
+const PROPERTY_ERAS = [
+  { value: 'pre-1900',   label: 'Pre-1900'   },
+  { value: '1900-1940',  label: '1900–1940'  },
+  { value: '1941-1970',  label: '1941–1970'  },
+  { value: '1971-2000',  label: '1971–2000'  },
+  { value: '2001+',      label: '2001+'       },
+];
+
+const SCOPE_TYPES = [
+  { value: 'footprint-extension', label: 'Footprint Extension' },
+  { value: 'structural-remodel',  label: 'Structural Remodel'  },
+  { value: 'loft-conversion',     label: 'Loft Conversion'     },
+  { value: 'internal-remodel',    label: 'Internal Remodel'    },
+];
+
+// ─── Shared chip component ────────────────────────────────────────────────────
+
+function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-3 py-2 rounded-xl text-xs font-semibold border-2 transition-colors
+        ${active
+          ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+          : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'}`}
+    >
+      {label}
+    </button>
+  );
+}
+
 // ─── Prompts ──────────────────────────────────────────────────────────────────
 
 const ZONE_QUESTIONS: Record<RoomKey, string> = {
@@ -80,14 +120,14 @@ const ZONE_QUESTIONS: Record<RoomKey, string> = {
 };
 
 function buildScopePrompt(firstName: string): string {
-  return `Hi ${firstName}! Which spaces are you looking to renovate or build, and what's the main goal for this project? Describe everything in your own words — there are no right or wrong answers.`;
+  return `Hi ${firstName}! Which spaces are you looking to renovate or build, and what's the main goal? Describe the work type and spaces in your own words.`;
 }
 
 const BUDGET_PROMPT =
-  "What's your target investment budget for this project, and when are you hoping to start or have it completed?";
+  "What's your investment target for this project and when are you looking to start? Also let us know whether your figure already includes a contingency buffer or professional fees (design, survey, certification).";
 
 const FINISHES_PROMPT =
-  "Almost there! Any final details — preferred material finishes, site constraints, heritage overlays, unique requirements, or anything else we should factor in?";
+  "Nearly there. First — are there any site access constraints we should know about? Then add any final notes on finishes, materials, or other requirements.";
 
 function buildZonePrompt(room: RoomKey, index: number, total: number): string {
   const q = ZONE_QUESTIONS[room];
@@ -97,10 +137,19 @@ function buildZonePrompt(room: RoomKey, index: number, total: number): string {
   return q;
 }
 
-function formatBudgetAnswer(budget: string, timeline: string): string {
+function formatBudgetAnswer(
+  budget: string,
+  timeline: string,
+  contingency: boolean | null,
+  fees: boolean | null,
+): string {
   const parts: string[] = [];
   if (budget.trim()) parts.push(`Budget: ${budget.trim()}`);
   if (timeline.trim()) parts.push(`Timeline: ${timeline.trim()}`);
+  const inclusions: string[] = [];
+  if (contingency === true) inclusions.push('contingency buffer');
+  if (fees === true) inclusions.push('professional fees');
+  if (inclusions.length > 0) parts.push(`Includes: ${inclusions.join(', ')}`);
   return parts.join('\n') || '(No details provided)';
 }
 
@@ -153,7 +202,7 @@ interface Props {
 
 // ─── Step indicator ───────────────────────────────────────────────────────────
 
-const STEP_LABELS = ['Contact', 'Spaces', 'Budget', 'Rooms', 'Notes'];
+const STEP_LABELS = ['Contact', 'Scope', 'Budget', 'Rooms', 'Site & Notes'];
 
 function ChatStepIndicator({ step }: { step: number }) {
   if (step === 0) return null;
@@ -244,15 +293,23 @@ function CompletionScreen() {
   );
 }
 
-// ─── Contact screen (Screen 0) ────────────────────────────────────────────────
+// ─── Contact screen ───────────────────────────────────────────────────────────
 
 interface ContactScreenProps {
   contact: ClientContact;
   onChange: (c: ClientContact) => void;
   onSubmit: () => void;
+  heritageStatus: string;
+  onHeritageChange: (v: string) => void;
+  propertyEra: string;
+  onEraChange: (v: string) => void;
 }
 
-function ContactScreen({ contact, onChange, onSubmit }: ContactScreenProps) {
+function ContactScreen({
+  contact, onChange, onSubmit,
+  heritageStatus, onHeritageChange,
+  propertyEra, onEraChange,
+}: ContactScreenProps) {
   const canSubmit = contact.name.trim() && contact.email.trim() && contact.siteAddress.trim();
 
   const field = (
@@ -300,6 +357,57 @@ function ContactScreen({ contact, onChange, onSubmit }: ContactScreenProps) {
           {field('Site Address', 'siteAddress', '14 Harbour View Rd, Newport NSW 2106')}
         </div>
 
+        {/* Heritage / Conservation Status */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+            Heritage Status
+            <span className="text-xs font-normal text-slate-400">(optional)</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {HERITAGE_OPTIONS.map(({ value, label }) => (
+              <Chip
+                key={value}
+                label={label}
+                active={heritageStatus === value}
+                onClick={() => onHeritageChange(heritageStatus === value ? '' : value)}
+              />
+            ))}
+          </div>
+          {heritageStatus === 'conservation-area' && (
+            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+              Heritage officer pre-approval may be required before DA submission.
+            </p>
+          )}
+          {heritageStatus === 'heritage-listed' && (
+            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+              Statement of Heritage Impact and Heritage Council approval will be required.
+            </p>
+          )}
+        </div>
+
+        {/* Property Era */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+            Property Era
+            <span className="text-xs font-normal text-slate-400">(optional)</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {PROPERTY_ERAS.map(({ value, label }) => (
+              <Chip
+                key={value}
+                label={label}
+                active={propertyEra === value}
+                onClick={() => onEraChange(propertyEra === value ? '' : value)}
+              />
+            ))}
+          </div>
+          {(propertyEra === 'pre-1900' || propertyEra === '1900-1940' || propertyEra === '1941-1970') && (
+            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+              Pre-1970 properties may contain asbestos or lead-based materials — a licensed assessor report is recommended before structural works.
+            </p>
+          )}
+        </div>
+
         <button
           onClick={onSubmit}
           disabled={!canSubmit}
@@ -334,7 +442,15 @@ function buildInitialMessages(
   msgs.push({ id: 'budget-prompt', role: 'assistant', content: BUDGET_PROMPT });
   if (phase.kind === 'budget') return msgs;
 
-  msgs.push({ id: 'budget-ans', role: 'user', content: formatBudgetAnswer(t.budget, t.timeline) });
+  msgs.push({
+    id: 'budget-ans',
+    role: 'user',
+    content: formatBudgetAnswer(
+      t.budget, t.timeline,
+      t.budgetIncludesContingency ?? null,
+      t.budgetIncludesProfessionalFees ?? null,
+    ),
+  });
 
   if (rooms.length === 0) {
     msgs.push({ id: 'finishes-prompt', role: 'assistant', content: FINISHES_PROMPT });
@@ -377,10 +493,20 @@ export function ChatWizard({ transcript, onUpdate, onComplete }: Props) {
   const [contact, setContact] = useState<ClientContact>(
     transcript.clientContact ?? initialClientContact
   );
+  const [heritageStatus, setHeritageStatus] = useState(transcript.heritageStatus ?? '');
+  const [propertyEra, setPropertyEra] = useState(transcript.propertyEra ?? '');
   const [scopeInput, setScopeInput] = useState('');
+  const [scopeTypes, setScopeTypes] = useState<string[]>(transcript.scopeType ?? []);
   const [budgetInput, setBudgetInput] = useState(transcript.budget);
   const [timelineInput, setTimelineInput] = useState(transcript.timeline);
+  const [budgetContingency, setBudgetContingency] = useState<boolean | null>(
+    transcript.budgetIncludesContingency ?? null
+  );
+  const [budgetFees, setBudgetFees] = useState<boolean | null>(
+    transcript.budgetIncludesProfessionalFees ?? null
+  );
   const [zoneInput, setZoneInput] = useState('');
+  const [siteAccessInput, setSiteAccessInput] = useState(transcript.siteAccessConstraints ?? '');
   const [finishesInput, setFinishesInput] = useState(transcript.q3_additional);
 
   // Pre-populate zone input when phase moves to a new room
@@ -401,7 +527,7 @@ export function ChatWizard({ transcript, onUpdate, onComplete }: Props) {
 
   const submitContact = () => {
     if (!contact.name.trim() || !contact.email.trim() || !contact.siteAddress.trim()) return;
-    const updated = { ...transcript, clientContact: contact };
+    const updated = { ...transcript, clientContact: contact, heritageStatus, propertyEra };
     onUpdate(updated);
     const firstName = contact.name.trim().split(' ')[0];
     setMessages([{ id: 'scope-prompt', role: 'assistant', content: buildScopePrompt(firstName) }]);
@@ -414,7 +540,7 @@ export function ChatWizard({ transcript, onUpdate, onComplete }: Props) {
     const flags = parseRoomFlags(text);
     const rooms = getActiveRooms(flags);
     setLocalRooms(rooms);
-    const updated = { ...transcript, q1_spaces: text, roomFlags: flags };
+    const updated = { ...transcript, q1_spaces: text, roomFlags: flags, scopeType: scopeTypes };
     onUpdate(updated);
     setMessages((prev) => [
       ...prev,
@@ -426,9 +552,15 @@ export function ChatWizard({ transcript, onUpdate, onComplete }: Props) {
   };
 
   const submitBudget = () => {
-    const updated = { ...transcript, budget: budgetInput.trim(), timeline: timelineInput.trim() };
+    const updated = {
+      ...transcript,
+      budget: budgetInput.trim(),
+      timeline: timelineInput.trim(),
+      budgetIncludesContingency: budgetContingency,
+      budgetIncludesProfessionalFees: budgetFees,
+    };
     onUpdate(updated);
-    const answer = formatBudgetAnswer(budgetInput, timelineInput);
+    const answer = formatBudgetAnswer(budgetInput, timelineInput, budgetContingency, budgetFees);
     const newMsgs: ChatMessage[] = [
       { id: `budget-ans-${Date.now()}`, role: 'user', content: answer },
     ];
@@ -477,13 +609,22 @@ export function ChatWizard({ transcript, onUpdate, onComplete }: Props) {
   const submitFinishes = () => {
     const text = finishesInput.trim();
     const completedAt = new Date().toISOString();
-    const updated = { ...transcript, q3_additional: text, completedAt };
+    const updated = {
+      ...transcript,
+      q3_additional: text,
+      siteAccessConstraints: siteAccessInput.trim(),
+      completedAt,
+    };
     onUpdate(updated);
     onComplete(updated);
-    if (text) {
+    const summaryParts: string[] = [];
+    if (siteAccessInput.trim()) summaryParts.push(`Site access: ${siteAccessInput.trim()}`);
+    if (text) summaryParts.push(text);
+    const userContent = summaryParts.join('\n\n');
+    if (userContent) {
       setMessages((prev) => [
         ...prev,
-        { id: `fin-ans-${Date.now()}`, role: 'user', content: text },
+        { id: `fin-ans-${Date.now()}`, role: 'user', content: userContent },
       ]);
     }
     setPhase({ kind: 'complete', zoneIndex: 0 });
@@ -502,6 +643,10 @@ export function ChatWizard({ transcript, onUpdate, onComplete }: Props) {
         contact={contact}
         onChange={setContact}
         onSubmit={submitContact}
+        heritageStatus={heritageStatus}
+        onHeritageChange={setHeritageStatus}
+        propertyEra={propertyEra}
+        onEraChange={setPropertyEra}
       />
     );
   }
@@ -542,14 +687,33 @@ export function ChatWizard({ transcript, onUpdate, onComplete }: Props) {
       <div className="border-t border-slate-100 bg-slate-50 px-5 py-4 shrink-0">
         <div className="max-w-2xl mx-auto space-y-3">
 
-          {/* Scope */}
+          {/* Scope — project type chips + free text */}
           {phase.kind === 'scope' && (
             <>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  Project Type <span className="ml-1 font-normal normal-case text-slate-400">(select all that apply)</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {SCOPE_TYPES.map(({ value, label }) => (
+                    <Chip
+                      key={value}
+                      label={label}
+                      active={scopeTypes.includes(value)}
+                      onClick={() =>
+                        setScopeTypes((prev) =>
+                          prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+                        )
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
               <textarea
                 value={scopeInput}
                 onChange={(e) => setScopeInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitScope(); }}
-                placeholder="e.g. We want to renovate the kitchen and both bathrooms, add a master bedroom ensuite, and create an outdoor entertaining area..."
+                placeholder="e.g. We want to extend the rear footprint to add a kitchen-dining zone, convert the loft into a master suite, and structurally open the ground floor..."
                 rows={4}
                 autoFocus
                 className="w-full px-4 py-3.5 rounded-2xl border-2 border-slate-200 bg-white
@@ -568,13 +732,13 @@ export function ChatWizard({ transcript, onUpdate, onComplete }: Props) {
             </>
           )}
 
-          {/* Budget & timeline */}
+          {/* Budget & timeline + contingency/fees toggles */}
           {phase.kind === 'budget' && (
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                    Target Budget
+                    Investment Target
                   </label>
                   <input
                     type="text"
@@ -603,8 +767,30 @@ export function ChatWizard({ transcript, onUpdate, onComplete }: Props) {
                   />
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  Budget Includes
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <Chip
+                    label={budgetContingency === true ? '✓ Contingency Buffer' : 'Contingency Buffer'}
+                    active={budgetContingency === true}
+                    onClick={() => setBudgetContingency((v) => (v === true ? null : true))}
+                  />
+                  <Chip
+                    label={budgetFees === true ? '✓ Professional Fees' : 'Professional Fees'}
+                    active={budgetFees === true}
+                    onClick={() => setBudgetFees((v) => (v === true ? null : true))}
+                  />
+                </div>
+                <p className="text-xs text-slate-400">
+                  Select if your figure already covers contingency and/or design/survey/certification fees.
+                </p>
+              </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400">Skip either if not yet decided</span>
+                <span className="text-xs text-slate-400">Skip any fields not yet decided</span>
                 <button onClick={submitBudget}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white
                              font-semibold text-sm hover:bg-indigo-700 transition-colors">
@@ -649,22 +835,45 @@ export function ChatWizard({ transcript, onUpdate, onComplete }: Props) {
             </>
           )}
 
-          {/* Finishes & notes */}
+          {/* Site & notes — site access + finishes */}
           {phase.kind === 'finishes' && (
             <>
-              <textarea
-                value={finishesInput}
-                onChange={(e) => setFinishesInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitFinishes(); }}
-                placeholder="e.g. Heritage overlay on the front facade. Polished concrete floors throughout ground level. Existing Jacaranda tree must be retained. Future pool provision in structural design. Stone and joinery samples already selected..."
-                rows={5}
-                autoFocus
-                className="w-full px-4 py-3.5 rounded-2xl border-2 border-slate-200 bg-white
-                           text-slate-900 placeholder:text-slate-400 text-sm leading-relaxed
-                           focus:border-indigo-500 focus:outline-none resize-none transition-colors"
-              />
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  Site Access Constraints
+                  <span className="ml-2 font-normal normal-case text-slate-400">(optional)</span>
+                </label>
+                <textarea
+                  value={siteAccessInput}
+                  onChange={(e) => setSiteAccessInput(e.target.value)}
+                  placeholder="e.g. Narrow side passage (600mm), overhead power lines on the north boundary, shared driveway with neighbour — no crane access from the street..."
+                  rows={3}
+                  autoFocus
+                  className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 bg-white
+                             text-slate-900 placeholder:text-slate-400 text-sm leading-relaxed
+                             focus:border-indigo-500 focus:outline-none resize-none transition-colors"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  Additional Notes & Finishes
+                  <span className="ml-2 font-normal normal-case text-slate-400">(optional)</span>
+                </label>
+                <textarea
+                  value={finishesInput}
+                  onChange={(e) => setFinishesInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitFinishes(); }}
+                  placeholder="e.g. Polished concrete floors throughout ground level. Existing Jacaranda tree must be retained. Future pool provision in structural design. Stone and joinery samples already selected..."
+                  rows={4}
+                  className="w-full px-4 py-3.5 rounded-2xl border-2 border-slate-200 bg-white
+                             text-slate-900 placeholder:text-slate-400 text-sm leading-relaxed
+                             focus:border-indigo-500 focus:outline-none resize-none transition-colors"
+                />
+              </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400">Skip if nothing else to add</span>
+                <span className="text-xs text-slate-400">⌘↵ to submit</span>
                 <button onClick={submitFinishes}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
                              bg-gradient-to-r from-indigo-600 to-violet-600 text-white

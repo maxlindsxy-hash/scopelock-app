@@ -174,6 +174,61 @@ FIELD MAPPING
 • additionalScope: ONLY for items explicitly stated in the transcript (Q3 notes, outdoor areas, garage, etc.). Return "" if nothing additional stated.
 
 ═══════════════════════════════════════════════════════
+ARCHITECTURAL RISK FLAGGING — MANDATORY WHERE TRIGGERED
+═══════════════════════════════════════════════════════
+The user message may include a SITE & PROJECT CONTEXT block. When it does, incorporate the
+following risk flags into `additionalScope` ONLY where the relevant field has an explicit value.
+Do NOT generate generic warnings. Every flag must directly correlate to a stated intake value.
+
+HERITAGE / CONSERVATION:
+• heritageStatus = "conservation-area" → Flag: "A Heritage Impact Statement and local council heritage
+  officer pre-approval are required prior to DA lodgement. External fabric alterations may be subject
+  to design controls under the applicable heritage overlay."
+• heritageStatus = "heritage-listed" → Flag: "A formal Statement of Heritage Impact and Heritage
+  Council consent are mandatory prerequisites to any works. Original building fabric, materials, and
+  significant features must be documented and, where possible, retained or salvaged per heritage
+  conservation principles."
+
+PROPERTY ERA — HAZARDOUS MATERIALS:
+• propertyEra = "pre-1900" | "1900-1940" | "1941-1970" → Flag: "Given the property's construction
+  era, a licensed asbestos assessor report (Safe Work Australia Code of Practice for the Management
+  and Control of Asbestos in Workplaces) is required before any structural disturbance. Pre-1970
+  dwellings have a statistically elevated likelihood of asbestos-containing materials (ACMs) in wall
+  sheeting, eave linings, floor tiles, and roofing. Lead-based paint testing is also recommended."
+• propertyEra = "pre-1900" | "1900-1940" → Additional flag: "Unreinforced masonry and heritage
+  structural systems are likely. A structural engineer assessment of existing wall construction is
+  required before any opening or remodelling works proceed (NCC 2022 Vol.2 Part H1 / AS 1684)."
+
+SCOPE CLASSIFICATION:
+• scopeType includes "footprint-extension" → Flag: "A Footprint Extension requires a Development
+  Application (DA) confirming compliance with applicable boundary setback controls, site coverage
+  limits, and stormwater management obligations. A BASIX Certificate will be required for NSW projects."
+• scopeType includes "loft-conversion" → Flag: "Loft Conversion to habitable space requires structural
+  loading calculations for the new floor plate (NCC 2022 Vol.2 Part H1 / AS 1170.1), minimum
+  2400mm finished ceiling height in habitable areas (NCC H4), compliant fire egress from the upper
+  level, and may require a building permit separate from any DA."
+• scopeType includes "structural-remodel" → Flag: "All structural wall removals and new openings
+  require an engineer-certified beam and lintel design before works commence (NCC 2022 Vol.2 Part H1
+  / AS 1684 timber framing or AS 3600 concrete). A building surveyor inspection hold point applies
+  prior to concealment of new structural members."
+
+SITE ACCESS:
+• siteAccessConstraints is present → Flag: "Stated site access constraints (as described) will
+  directly impact construction methodology, materials delivery sequencing, and plant selection.
+  A provisional sum should be allocated in the preliminaries to cover specialised access solutions
+  (e.g. materials hoist, crane-free scheduling, or after-hours delivery management)."
+
+BUDGET GAPS:
+• budgetIncludesContingency = false → Flag: "Note: The stated investment figure does not include a
+  contingency allowance. Industry standard practice is to maintain 10–15% of the construction cost
+  as a contingency reserve for unforeseen site conditions, latent defects, and scope variations.
+  This contingency should be formally established before contract execution."
+• budgetIncludesProfessionalFees = false → Flag: "Note: Professional consultancy fees — including
+  architect or designer, structural engineer, building surveyor, soil testing, and BASIX/energy
+  assessment — are not included in the stated figure. These typically represent 8–15% of the
+  construction budget and must be budgeted as a separate line item."
+
+═══════════════════════════════════════════════════════
 LANGUAGE STYLE
 ═══════════════════════════════════════════════════════
 Third-person, active construction verbs: Design, Construct, Specify, Integrate, Commission, Implement, Establish, Incorporate. Formal, precise, technically authoritative. Write for a licensed builder audience. Sentences 20–40 words.
@@ -212,6 +267,12 @@ interface ChatTranscript {
   q2_followups: Record<string, string>;
   q3_additional: string;
   completedAt: string | null;
+  heritageStatus?: string;
+  propertyEra?: string;
+  scopeType?: string[];
+  siteAccessConstraints?: string;
+  budgetIncludesContingency?: boolean | null;
+  budgetIncludesProfessionalFees?: boolean | null;
 }
 
 const ROOM_LABELS: Record<string, string> = {
@@ -290,9 +351,56 @@ function buildUserMessage(transcript: ChatTranscript): string {
     }
   }
 
+  if (transcript.siteAccessConstraints?.trim()) {
+    lines.push('── Site Access Constraints ──');
+    lines.push(truncate(transcript.siteAccessConstraints, 600));
+    lines.push('');
+  }
+
   if (transcript.q3_additional?.trim()) {
     lines.push('── Additional Notes ──');
     lines.push(truncate(transcript.q3_additional, Q3_CHAR_LIMIT));
+    lines.push('');
+  }
+
+  // ── SITE & PROJECT CONTEXT (structured intake fields — drives risk flagging) ─
+  const HERITAGE_LABELS: Record<string, string> = {
+    'none':              'Not Heritage Listed',
+    'conservation-area': 'Located in Conservation Area',
+    'heritage-listed':   'Heritage Listed Building',
+  };
+  const SCOPE_TYPE_LABELS: Record<string, string> = {
+    'footprint-extension': 'Footprint Extension',
+    'structural-remodel':  'Structural Remodel',
+    'loft-conversion':     'Loft Conversion',
+    'internal-remodel':    'Internal Remodel',
+  };
+
+  const hasContext =
+    transcript.heritageStatus ||
+    transcript.propertyEra ||
+    transcript.scopeType?.length ||
+    transcript.budgetIncludesContingency !== undefined ||
+    transcript.budgetIncludesProfessionalFees !== undefined;
+
+  if (hasContext) {
+    lines.push('SITE & PROJECT CONTEXT (structured intake data — use for risk flagging)');
+    lines.push('══════════════════════════════════════════════════════════════════');
+    if (transcript.heritageStatus) {
+      lines.push(`Heritage Status:            ${HERITAGE_LABELS[transcript.heritageStatus] ?? transcript.heritageStatus}`);
+    }
+    if (transcript.propertyEra) {
+      lines.push(`Property Era:               ${transcript.propertyEra}`);
+    }
+    if (transcript.scopeType?.length) {
+      lines.push(`Scope Classification:       ${transcript.scopeType.map((v) => SCOPE_TYPE_LABELS[v] ?? v).join(', ')}`);
+    }
+    if (transcript.budgetIncludesContingency !== null && transcript.budgetIncludesContingency !== undefined) {
+      lines.push(`Budget — Contingency:       ${transcript.budgetIncludesContingency ? 'Included' : 'NOT Included'}`);
+    }
+    if (transcript.budgetIncludesProfessionalFees !== null && transcript.budgetIncludesProfessionalFees !== undefined) {
+      lines.push(`Budget — Professional Fees: ${transcript.budgetIncludesProfessionalFees ? 'Included' : 'NOT Included'}`);
+    }
     lines.push('');
   }
 

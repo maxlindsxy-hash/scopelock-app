@@ -5,6 +5,7 @@
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "functions": {
     "api/refine.ts":              { "maxDuration": 60 },
+    "api/tenant-branding.ts":     { "maxDuration": 10 },
     "api/submit-intake.ts":       { "maxDuration": 10 },
     "api/tenant-submissions.ts":  { "maxDuration": 10 }
   }

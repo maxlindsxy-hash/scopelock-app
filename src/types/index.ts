@@ -41,6 +41,13 @@ export interface ChatTranscript {
   // Final step — finishes & custom notes
   q3_additional: string;
   completedAt: string | null;
+  // Architectural context (Step 1 & Step 4 structured fields)
+  heritageStatus: string;             // '' | 'none' | 'conservation-area' | 'heritage-listed'
+  propertyEra: string;                // '' | 'pre-1900' | '1900-1940' | '1941-1970' | '1971-2000' | '2001+'
+  scopeType: string[];                // 'footprint-extension' | 'structural-remodel' | 'loft-conversion' | 'internal-remodel'
+  siteAccessConstraints: string;
+  budgetIncludesContingency: boolean | null;
+  budgetIncludesProfessionalFees: boolean | null;
 }
 
 export const initialRoomFlags: RoomFlags = {
@@ -63,6 +70,12 @@ export const initialChatTranscript: ChatTranscript = {
   q2_followups: {},
   q3_additional: '',
   completedAt: null,
+  heritageStatus: '',
+  propertyEra: '',
+  scopeType: [],
+  siteAccessConstraints: '',
+  budgetIncludesContingency: null,
+  budgetIncludesProfessionalFees: null,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
