@@ -177,7 +177,7 @@ FIELD MAPPING
 ARCHITECTURAL RISK FLAGGING — MANDATORY WHERE TRIGGERED
 ═══════════════════════════════════════════════════════
 The user message may include a SITE & PROJECT CONTEXT block. When it does, incorporate the
-following risk flags into `additionalScope` ONLY where the relevant field has an explicit value.
+following risk flags into "additionalScope" ONLY where the relevant field has an explicit value.
 Do NOT generate generic warnings. Every flag must directly correlate to a stated intake value.
 
 HERITAGE / CONSERVATION:
