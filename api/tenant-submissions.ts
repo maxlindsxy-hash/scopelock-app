@@ -12,7 +12,8 @@ async function kvLRange(key: string, start: number, stop: number): Promise<strin
     headers: { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` },
   });
   const json = await res.json() as { result: string[] };
-  return json.result ?? [];
+  // Strip surrounding quotes from legacy entries written before the LPUSH encoding fix
+  return (json.result ?? []).map((id) => id.replace(/^"|"$/g, ''));
 }
 
 async function kvGet<T>(key: string): Promise<T | null> {
@@ -20,8 +21,13 @@ async function kvGet<T>(key: string): Promise<T | null> {
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` },
   });
-  const json = await res.json() as { result: T | null };
-  return json.result ?? null;
+  const json = await res.json() as { result: unknown };
+  const raw = json.result;
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw) as T; } catch { return null; }
+  }
+  return raw as T;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

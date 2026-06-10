@@ -26,11 +26,8 @@ async function kvLPush(key: string, value: string): Promise<void> {
   const url = `${process.env.KV_REST_API_URL}/lpush/${encodeURIComponent(key)}`;
   await fetch(url, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(value),
+    headers: { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` },
+    body: value,
   });
 }
 
