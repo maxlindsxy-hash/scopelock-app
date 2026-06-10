@@ -42,3 +42,5 @@ odysseus/
 jarvis_mic.py
 setup_remote_tunnel.bat
 prompt.md
+
+.env*

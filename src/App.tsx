@@ -12,8 +12,7 @@ import {
   History,
   FilePlus2,
   AlertTriangle,
-  MessageSquare,
-  Inbox,
+  FileText,
 } from 'lucide-react';
 
 import type {
@@ -29,7 +28,6 @@ import {
 } from './types';
 import { refineProjectBrief } from './utils/aiRefiner';
 import type { RefinedBriefData } from './utils/aiRefiner';
-import { ChatWizard } from './components/ChatWizard';
 import { ContractorDashboard } from './components/ContractorDashboard';
 import { ProjectBrief } from './components/ProjectBrief';
 import { ContractorSetup } from './components/ContractorSetup';
@@ -41,7 +39,7 @@ import { BriefPDF } from './components/BriefPDF';
 
 const CONTRACTOR_KEY = 'scopelock_contractor_v1';
 const SESSIONS_KEY   = 'scopelock_sessions_v1';
-const ACTIVE_KEY     = 'scopelock_active_v3';  // bumped: ClientContact + budget + timeline fields
+const ACTIVE_KEY     = 'scopelock_active_v3';
 const MAX_SESSIONS   = 40;
 
 function loadContractor(): ContractorProfile {
@@ -70,12 +68,9 @@ function saveSessions(sessions: Session[]) {
   } catch { /* ignore */ }
 }
 
-type AppView = 'client' | 'contractor';
-
 interface ActiveDraft {
   data: ProjectData;
   transcript: ChatTranscript;
-  view: AppView;
   briefGenerated: boolean;
   refinedData: RefinedBriefData | null;
   refNumber: string;
@@ -162,7 +157,6 @@ export default function App() {
     () => saved?.transcript ?? initialChatTranscript
   );
   const [data, setData] = useState<ProjectData>(() => saved?.data ?? initialProjectData);
-  const [view, setView] = useState<AppView>(() => saved?.view ?? 'client');
   const [briefGenerated, setBriefGenerated] = useState<boolean>(() => saved?.briefGenerated ?? false);
   const [refinedData, setRefinedData] = useState<RefinedBriefData | null>(() => saved?.refinedData ?? null);
   const [signatureDataUrl, setSignatureDataUrl] = useState('');
@@ -187,16 +181,15 @@ export default function App() {
   const [showMobilePreview, setShowMobilePreview] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [showSubmissions, setShowSubmissions] = useState(false);
   const [showNewProjectConfirm, setShowNewProjectConfirm] = useState(false);
 
   // ── Persist active draft ─────────────────────────────────────────────────────
   useEffect(() => {
     saveActive({
-      data, transcript, view, briefGenerated, refinedData,
+      data, transcript, briefGenerated, refinedData,
       refNumber, generatedDate, currentSessionId, sessionCreatedAt,
     });
-  }, [data, transcript, view, briefGenerated, refinedData, refNumber, generatedDate, currentSessionId, sessionCreatedAt]);
+  }, [data, transcript, briefGenerated, refinedData, refNumber, generatedDate, currentSessionId, sessionCreatedAt]);
 
   // ── Persist signature to history ─────────────────────────────────────────────
   useEffect(() => {
@@ -227,7 +220,6 @@ export default function App() {
     clearActive();
     setTranscript(initialChatTranscript);
     setData(initialProjectData);
-    setView('client');
     setBriefGenerated(false);
     setSignatureDataUrl('');
     setShowMobilePreview(false);
@@ -241,8 +233,6 @@ export default function App() {
 
   // ── Generate brief (contractor-triggered) ────────────────────────────────────
   const handleGenerate = async () => {
-    // Bridge transcript → data so ProjectBrief renders correct metadata immediately,
-    // before the AI response arrives. Only overwrites fields that are blank in data.
     setData((prev) => ({
       ...prev,
       clientName:  transcript.clientContact?.name        || prev.clientName,
@@ -429,9 +419,8 @@ export default function App() {
     setGeneratedDate(session.generatedDate);
     setRefinedData(session.status === 'generated' ? refineProjectBrief(session.data) : null);
     setIsRefining(false);
-    setView(session.status === 'generated' ? 'contractor' : 'client');
     setShowHistory(false);
-    setShowMobilePreview(false);
+    setShowMobilePreview(session.status === 'generated');
     toast.info(`Loaded session ${session.refNumber}`);
   };
 
@@ -441,6 +430,20 @@ export default function App() {
       saveSessions(updated);
       return updated;
     });
+  };
+
+  // ── Load from inbox ───────────────────────────────────────────────────────────
+  const handleLoadFromInbox = (incoming: ChatTranscript) => {
+    setTranscript(incoming);
+    setBriefGenerated(false);
+    setRefinedData(null);
+    setIsRefining(false);
+    setSignatureDataUrl('');
+    setCurrentSessionId(generateId());
+    setSessionCreatedAt(new Date().toISOString());
+    setRefNumber(makeRef());
+    setGeneratedDate(makeDate());
+    setShowMobilePreview(true);
   };
 
   // ── Brief props (shared) ──────────────────────────────────────────────────────
@@ -454,10 +457,13 @@ export default function App() {
     refinedData,
   };
 
+  const showBrief = briefGenerated || isRefining;
+  const hasTranscript = hasAnyTranscript(transcript);
+
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[#fcfbf9]">
+    <div id="app-root" className="h-screen flex flex-col overflow-hidden bg-[#fcfbf9]">
       <Toaster position="top-center" richColors expand={false} />
 
       {/* Contractor settings overlay */}
@@ -477,25 +483,6 @@ export default function App() {
           onLoad={handleLoadSession}
           onDelete={handleDeleteSession}
           onClose={() => setShowHistory(false)}
-        />
-      )}
-
-      {/* Submissions inbox */}
-      {showSubmissions && (
-        <SubmissionsInbox
-          tenantSlug={contractor.tenantSlug}
-          onLoad={(incoming) => {
-            setTranscript(incoming);
-            setView('contractor');
-            setBriefGenerated(false);
-            setRefinedData(null);
-            setCurrentSessionId(generateId());
-            setSessionCreatedAt(new Date().toISOString());
-            setRefNumber(makeRef());
-            setGeneratedDate(makeDate());
-          }}
-          onClose={() => setShowSubmissions(false)}
-          onConfigureSlug={() => { setShowSubmissions(false); setShowSettings(true); }}
         />
       )}
 
@@ -569,9 +556,9 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Mobile brief modal (contractor view only) */}
+      {/* Mobile brief/transcript sheet */}
       <AnimatePresence>
-        {showMobilePreview && view === 'contractor' && (
+        {showMobilePreview && (hasTranscript || showBrief) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -594,7 +581,9 @@ export default function App() {
                   <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
                     <Lock size={13} className="text-white" />
                   </div>
-                  <span className="font-semibold text-[#1c1b1a]">Brief Preview</span>
+                  <span className="font-semibold text-[#1c1b1a]">
+                    {showBrief ? 'Project Brief' : 'Transcript Review'}
+                  </span>
                 </div>
                 <button
                   onClick={() => setShowMobilePreview(false)}
@@ -605,172 +594,160 @@ export default function App() {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto">
-                <ProjectBrief {...briefProps} />
+                {showBrief ? (
+                  <ProjectBrief {...briefProps} />
+                ) : (
+                  <ContractorDashboard
+                    transcript={transcript}
+                    refNumber={refNumber}
+                    isGenerating={isRefining}
+                    onGenerate={handleGenerate}
+                  />
+                )}
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Main layout ──────────────────────────────────────────────── */}
-      <div className={view === 'contractor' ? 'lg:flex lg:h-screen lg:overflow-hidden' : 'flex flex-col min-h-screen'}>
+      {/* ── Header (full-width, sticky) ───────────────────────────────── */}
+      <div className="no-print shrink-0 bg-white border-b border-[rgba(28,27,26,0.08)] px-4 py-3.5 sticky top-0 z-10">
+        <div className="flex items-center gap-2">
 
-        {/* Left panel */}
-        <div className={view === 'contractor' ? 'lg:w-[60%] lg:h-screen lg:overflow-y-auto' : 'flex-1 flex flex-col'}>
-
-          {/* Header */}
-          <div className="bg-white border-b border-[rgba(28,27,26,0.08)] px-4 py-3.5 sticky top-0 z-10 no-print">
-            <div className="max-w-2xl mx-auto flex items-center gap-2">
-
-              {/* Brand */}
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0">
-                  <Lock size={15} className="text-white" />
-                </div>
-                <span className="font-bold text-[#1c1b1a] text-base tracking-tight">ScopeLock</span>
-                <span className="text-[#9b9895] hidden md:inline">·</span>
-                <span className="text-xs text-[#9b9895] hidden md:inline font-medium truncate">
-                  {view === 'contractor' ? 'Contractor Dashboard' : 'Client Intake'}
-                </span>
-              </div>
-
-              {/* Header actions */}
-              <div className="flex items-center gap-1.5 shrink-0">
-
-                {/* View toggle — only visible to contractor (never shown in client-facing view) */}
-                {view === 'contractor' && (
-                  <button
-                    onClick={() => setView('client')}
-                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border-2 text-xs font-semibold
-                               transition-all touch-manipulation border-indigo-200 bg-indigo-50
-                               text-indigo-600 hover:bg-indigo-100"
-                    title="Back to client chat"
-                  >
-                    <MessageSquare size={14} />
-                    <span className="hidden sm:inline">Client Chat</span>
-                  </button>
-                )}
-
-                {/* Submissions inbox */}
-                <button
-                  onClick={() => setShowSubmissions(true)}
-                  title="Client intake submissions"
-                  className="relative flex items-center gap-1.5 px-2.5 py-2 rounded-xl
-                             border-2 border-[rgba(28,27,26,0.08)] text-[#5a5755] text-xs font-semibold
-                             hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
-                >
-                  <Inbox size={14} />
-                  <span className="hidden sm:inline">Inbox</span>
-                </button>
-
-                {/* History */}
-                <button
-                  onClick={() => setShowHistory(true)}
-                  title="Session history"
-                  className="relative flex items-center gap-1.5 px-2.5 py-2 rounded-xl
-                             border-2 border-[rgba(28,27,26,0.08)] text-[#5a5755] text-xs font-semibold
-                             hover:border-[rgba(28,27,26,0.14)] hover:bg-[#f7f6f4] transition-all"
-                >
-                  <History size={14} />
-                  <span className="hidden sm:inline">History</span>
-                  {sessions.length > 0 && (
-                    <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-100
-                                     text-indigo-600 text-[10px] font-bold flex items-center justify-center">
-                      {sessions.length > 99 ? '99+' : sessions.length}
-                    </span>
-                  )}
-                </button>
-
-                {/* New project */}
-                <button
-                  onClick={handleNewProject}
-                  title="New project"
-                  className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl
-                             bg-[#f7f6f4] text-[#5a5755] text-xs font-semibold
-                             hover:bg-[rgba(28,27,26,0.06)] transition-all"
-                >
-                  <FilePlus2 size={14} />
-                  <span className="hidden sm:inline">New</span>
-                </button>
-
-                {/* Contractor settings */}
-                <button
-                  onClick={() => setShowSettings(true)}
-                  title="Contractor profile"
-                  className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border-2
-                             border-[rgba(28,27,26,0.08)] text-[#5a5755] text-xs font-semibold
-                             hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50
-                             transition-all max-w-[120px]"
-                >
-                  <Settings size={14} className="shrink-0" />
-                  <span className="hidden sm:inline truncate">
-                    {contractor.companyName || 'Profile'}
-                  </span>
-                </button>
-              </div>
+          {/* Brand */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0">
+              <Lock size={15} className="text-white" />
             </div>
+            <span className="font-bold text-[#1c1b1a] text-base tracking-tight">ScopeLock</span>
+            <span className="text-[#9b9895] hidden md:inline">·</span>
+            <span className="text-xs text-[#9b9895] hidden md:inline font-medium truncate">
+              Contractor Dashboard
+            </span>
           </div>
 
-          {/* Panel body */}
-          {view === 'client' ? (
-            <div className="flex-1 flex flex-col" style={{ height: 'calc(100vh - 57px)' }}>
-              <ChatWizard
-                transcript={transcript}
-                onUpdate={setTranscript}
-                onComplete={(completed) => {
-                  setTranscript(completed);
-                  toast.success('Client intake complete!', {
-                    description: 'Switch to Contractor Dashboard to review and generate the brief.',
-                    duration: 6000,
-                    action: {
-                      label: 'Go to Dashboard',
-                      onClick: () => setView('contractor'),
-                    },
-                  });
-                }}
-              />
-            </div>
-          ) : (
+          {/* Header actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
+
+            {/* History */}
+            <button
+              onClick={() => setShowHistory(true)}
+              title="Session history"
+              className="relative flex items-center gap-1.5 px-2.5 py-2 rounded-xl
+                         border-2 border-[rgba(28,27,26,0.08)] text-[#5a5755] text-xs font-semibold
+                         hover:border-[rgba(28,27,26,0.14)] hover:bg-[#f7f6f4] transition-all"
+            >
+              <History size={14} />
+              <span className="hidden sm:inline">History</span>
+              {sessions.length > 0 && (
+                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-100
+                                 text-indigo-600 text-[10px] font-bold flex items-center justify-center">
+                  {sessions.length > 99 ? '99+' : sessions.length}
+                </span>
+              )}
+            </button>
+
+            {/* New project */}
+            <button
+              onClick={handleNewProject}
+              title="New project"
+              className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl
+                         bg-[#f7f6f4] text-[#5a5755] text-xs font-semibold
+                         hover:bg-[rgba(28,27,26,0.06)] transition-all"
+            >
+              <FilePlus2 size={14} />
+              <span className="hidden sm:inline">New</span>
+            </button>
+
+            {/* Contractor settings */}
+            <button
+              onClick={() => setShowSettings(true)}
+              title="Contractor profile"
+              className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border-2
+                         border-[rgba(28,27,26,0.08)] text-[#5a5755] text-xs font-semibold
+                         hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50
+                         transition-all max-w-[120px]"
+            >
+              <Settings size={14} className="shrink-0" />
+              <span className="hidden sm:inline truncate">
+                {contractor.companyName || 'Profile'}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Split-pane content ────────────────────────────────────────── */}
+      <div id="app-content" className="flex-1 flex overflow-hidden">
+
+        {/* Left: Submissions inbox (full-width on mobile, fixed 380px on desktop) */}
+        <div
+          id="inbox-panel"
+          className="no-print flex flex-col w-full lg:w-[380px] lg:shrink-0
+                     border-r border-[rgba(28,27,26,0.08)] overflow-hidden"
+        >
+          <SubmissionsInbox
+            inline
+            tenantSlug={contractor.tenantSlug}
+            onLoad={handleLoadFromInbox}
+            onConfigureSlug={() => setShowSettings(true)}
+          />
+        </div>
+
+        {/* Right: Brief document viewport (desktop only) */}
+        <div
+          id="brief-panel"
+          className="hidden lg:flex flex-col flex-1 overflow-hidden"
+        >
+          {showBrief ? (
+            <ProjectBrief {...briefProps} />
+          ) : hasTranscript ? (
             <ContractorDashboard
               transcript={transcript}
               refNumber={refNumber}
               isGenerating={isRefining}
               onGenerate={handleGenerate}
             />
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center h-full text-center px-8 py-20">
+              <div className="w-16 h-16 rounded-2xl bg-[#f7f6f4] flex items-center justify-center mb-4">
+                <FileText size={28} className="text-[#9b9895]" />
+              </div>
+              <h3 className="font-semibold text-[#1c1b1a] mb-1">Select a submission</h3>
+              <p className="text-sm text-[#9b9895] max-w-xs leading-relaxed">
+                Open a client intake from the inbox to review their transcript and generate a professional brief.
+              </p>
+            </div>
           )}
         </div>
-
-        {/* Right panel — Brief preview (contractor view, desktop only) */}
-        {view === 'contractor' && (
-          <div className="hidden lg:flex lg:flex-col lg:w-[40%] lg:h-screen border-l border-[rgba(28,27,26,0.08)]">
-            <ProjectBrief {...briefProps} />
-          </div>
-        )}
       </div>
 
-      {/* Mobile FAB — brief preview (contractor view only) */}
-      {view === 'contractor' && (
-        <motion.div
-          initial={{ scale: 0, opacity: 0, y: 16 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          transition={{ type: 'spring', damping: 16, stiffness: 280, delay: 0.4 }}
-          className="lg:hidden fixed bottom-6 right-5 z-30 no-print"
-        >
-          <button
-            type="button"
-            onClick={() => setShowMobilePreview((v) => !v)}
-            className="flex items-center gap-2 pl-4 pr-5 py-3 rounded-2xl font-semibold text-sm
-                       bg-indigo-600 text-white shadow-xl shadow-indigo-300/50
-                       active:scale-95 transition-all duration-150"
+      {/* Mobile FAB — brief/transcript preview */}
+      <AnimatePresence>
+        {(hasTranscript || showBrief) && (
+          <motion.div
+            initial={{ scale: 0, opacity: 0, y: 16 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0, opacity: 0, y: 16 }}
+            transition={{ type: 'spring', damping: 16, stiffness: 280 }}
+            className="lg:hidden fixed bottom-6 right-5 z-30 no-print"
           >
-            {showMobilePreview ? <EyeOff size={16} /> : <Eye size={16} />}
-            Brief Preview
-            {briefGenerated && (
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
-            )}
-          </button>
-        </motion.div>
-      )}
+            <button
+              type="button"
+              onClick={() => setShowMobilePreview((v) => !v)}
+              className="flex items-center gap-2 pl-4 pr-5 py-3 rounded-2xl font-semibold text-sm
+                         bg-indigo-600 text-white shadow-xl shadow-indigo-300/50
+                         active:scale-95 transition-all duration-150"
+            >
+              {showMobilePreview ? <EyeOff size={16} /> : <Eye size={16} />}
+              {briefGenerated ? 'View Brief' : 'Review'}
+              {briefGenerated && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+              )}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

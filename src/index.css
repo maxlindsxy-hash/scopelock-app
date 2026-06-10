@@ -97,14 +97,23 @@
     display: none !important;
   }
 
-  body > #root > div > div.lg\:flex > div:first-child {
-    display: none !important;
+  #app-root {
+    height: auto !important;
+    overflow: visible !important;
   }
 
-  body > #root > div > div.lg\:flex > div:last-child {
+  #app-content {
+    overflow: visible !important;
+    height: auto !important;
     display: block !important;
+  }
+
+  #brief-panel {
+    display: flex !important;
+    flex-direction: column !important;
     width: 100% !important;
     height: auto !important;
+    overflow: visible !important;
     border: none !important;
   }
 

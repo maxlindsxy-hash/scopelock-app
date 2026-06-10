@@ -374,9 +374,9 @@ export function ProjectBrief({
   const hasContractor = !!(contractor.companyName || contractor.contactName);
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-[#fcfbf9]">
       {/* ── Panel toolbar ── */}
-      <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-[rgba(28,27,26,0.08)]
+      <div className="sticky top-0 bg-[#fcfbf9]/95 backdrop-blur border-b border-[rgba(28,27,26,0.08)]
                        px-5 py-3 flex items-center justify-between z-10 no-print shrink-0">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full transition-colors ${
